@@ -46,12 +46,12 @@
                           useEffect(() => {
                             (async () => {
                               if (checkEligibility) {
-                                if (!candyMachineId || candyMachineId === "11111111111111111111111111111111") {
-                                  console.error("No valid candy machine in .env!");
+                                if (!candyMachineId) {
+                                  console.error("No candy machine in .env!");
                                   if (!toast.isActive("no-cm")) {
                                     toast({
                                       id: "no-cm",
-                                      title: "No valid candy machine in .env!",
+                                      title: "No candy machine in .env!",
                                       description: "Add your candy machine address to the .env file!",
                                       status: "error",
                                       duration: 999999,
@@ -139,7 +139,7 @@
                           const wallet = useWallet();
                           const umiWithWallet = useMemo(() => wallet.connected ? (umi.use(walletAdapterIdentity(wallet)) as unknown as Umi) : umi, [umi, wallet]);
                           const walletBalance = useWalletBalance(umiWithWallet);
-
+                         
                           if (!process.env.NEXT_PUBLIC_CANDY_MACHINE_ID) {
                             console.error("No candy machine in .env!")
                             if (!toast.isActive('no-cm')) {
