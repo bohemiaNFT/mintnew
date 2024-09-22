@@ -1,10 +1,6 @@
 import {
   AddressGate,
   Allocation,
-  AssetBurn,
-  AssetBurnMulti,
-  AssetPayment,
-  AssetPaymentMulti,
   CandyGuard,
   CandyMachine,
   EndDate,
@@ -13,17 +9,15 @@ import {
   GuardSet,
   NftBurn,
   NftGate,
-  NftMintLimit,
   NftPayment,
   RedeemedAmount,
-  SolFixedFee,
   SolPayment,
   StartDate,
   TokenBurn,
   TokenGate,
   TokenPayment,
   getMerkleRoot,
-} from "@metaplex-foundation/mpl-core-candy-machine";
+} from "@metaplex-foundation/mpl-candy-machine";
 import {
   SolAmount,
   Some,
@@ -41,86 +35,28 @@ import {
   ownedNftChecker,
   GuardReturn,
   allocationChecker,
-  nftMintLimitChecker,
-  DigitalAssetWithTokenAndNftMintLimit,
-  DasApiAssetAndAssetMintLimit,
-  checkCoreAssetsRequired,
-  assetMintLimitChecker,
-  ownedCoreAssetChecker,
+  calculateMintable,
 } from "./checkerHelper";
 import { allowLists } from "./../allowlist";
 import {
-  DigitalAssetWithToken,  
+  DigitalAssetWithToken,
   fetchAllDigitalAssetWithTokenByOwner,
 } from "@metaplex-foundation/mpl-token-metadata";
 import { checkAtaValid } from "./validateConfig";
-import { das } from "@metaplex-foundation/mpl-core-das";
-import { AddressLookupTableProgram, PublicKey, Transaction, sendAndConfirmTransaction, Keypair } from "@solana/web3.js";
-import bs58 from 'bs58'; // Add this import for base58 decoding
 
-// In the guardChecker function
 export const guardChecker = async (
   umi: Umi,
   candyGuard: CandyGuard,
   candyMachine: CandyMachine,
   solanaTime: bigint
 ) => {
-  // Log the umi object to debug its structure
-  console.log("UMI object:", umi);
-  console.log("UMI identity:", umi.identity);
-  console.log("UMI identity type:", typeof umi.identity);
-
-  // Check if umi.identity is defined and has the expected structure
-  if (!umi.identity || typeof umi.identity !== 'object') {
-    console.error("UMI identity is not properly defined");
-    return { guardReturn: [], ownedNfts: [], ownedCoreAssets: [] };
-  }
-
-  // Ensure the secret key is available
-  if (!umi.identity.secretKey) {
-    console.warn("Secret key is undefined. Cannot proceed with transaction.");
-    // Instead of returning early, we'll continue without creating a Keypair
-  } else {
-    let secretKey = umi.identity.secretKey;
-    console.log("Secret key type:", typeof secretKey);
-
-    if (typeof secretKey === 'string') {
-      try {
-        secretKey = bs58.decode(secretKey);
-      } catch (error) {
-        console.error("Failed to decode secret key:", error);
-      }
-    } else if (!(secretKey instanceof Uint8Array)) {
-      console.error(`Unexpected secret key type: ${typeof secretKey}`);
-    }
-
-    console.log("Secret key length:", secretKey.length);
-
-    if (secretKey.length !== 64) {
-      console.error(`Invalid secret key length. Expected 64 bytes, got ${secretKey.length}`);
-    } else {
-      try {
-        const identityKeypair = Keypair.fromSecretKey(secretKey);
-        console.log("Successfully created Keypair");
-
-        // TODO: Consider using a lookup table to optimize transactions.
-        // This should be set up separately, not within this function.
-        // See the createLookupTable function below for an example implementation.
-      } catch (error) {
-        console.error("Error creating Keypair or sending transaction:", error);
-      }
-    }
-  }
-
   let guardReturn: GuardReturn[] = [];
-
-  let ownedTokens: DigitalAssetWithTokenAndNftMintLimit[] = [];
-  let ownedCoreAssets: DasApiAssetAndAssetMintLimit[] = [];
+  let ownedTokens: DigitalAssetWithToken[] = [];
   if (!candyGuard) {
     if (guardReturn.length === 0) {
       //guardReturn.push({ label: "default", allowed: false });
     }
-    return { guardReturn, ownedNfts: ownedTokens, ownedCoreAssets };
+    return { guardReturn, ownedNfts: ownedTokens };
   }
 
   let guardsToCheck: { label: string; guards: GuardSet }[] = candyGuard.groups;
@@ -129,36 +65,24 @@ export const guardChecker = async (
   //no wallet connected. return dummies
   const dummyPublicKey = publicKey("11111111111111111111111111111111");
   if (
-    umi.identity.publicKey === dummyPublicKey
+    umi.identity.publicKey === dummyPublicKey ||
+    Number(candyMachine.data.itemsAvailable) - Number(candyMachine.itemsRedeemed) === 0
   ) {
     for (const eachGuard of guardsToCheck) {
       guardReturn.push({
         label: eachGuard.label,
         allowed: false,
-        reason: "Please connect your wallet to mint", 
+        reason: "Please connect your wallet to mint",
+        maxAmount: 0
       });
     }
-    return { guardReturn, ownedNfts: ownedTokens, ownedCoreAssets };
+    return { guardReturn, ownedNfts: ownedTokens };
   }
 
-  if (
-    Number(candyMachine.data.itemsAvailable) -
-      Number(candyMachine.itemsRedeemed) ===
-      0
-  ) {
-    for (const eachGuard of guardsToCheck) {
-      guardReturn.push({
-        label: eachGuard.label,
-        allowed: false,
-        reason: "Sorry, we are minted out!",
-      });
-    }
-    return { guardReturn, ownedNfts: ownedTokens, ownedCoreAssets };
-  }
-
-  if (candyMachine.authority === umi.identity.publicKey) {
+  if (candyMachine.authority === umi.identity.publicKey){
     checkAtaValid(umi, guardsToCheck);
   }
+
 
   let solBalance: SolAmount = sol(0);
   if (checkSolBalanceRequired(guardsToCheck)) {
@@ -172,38 +96,23 @@ export const guardChecker = async (
           label: eachGuard.label,
           allowed: false,
           reason: "Wallet does not exist. Do you have SOL?",
+          maxAmount: 0
         });
       }
-      return { guardReturn, ownedNfts: ownedTokens, ownedCoreAssets };
+      return { guardReturn, ownedNfts: ownedTokens };
     }
   }
 
   if (checkTokensRequired(guardsToCheck)) {
-    ownedTokens = await fetchAllDigitalAssetWithTokenByOwner(umi, 
-      umi.identity.publicKey);      
+    ownedTokens = await fetchAllDigitalAssetWithTokenByOwner(
+      umi,
+      umi.identity.publicKey
+    );
   }
-
-  if (checkCoreAssetsRequired(guardsToCheck)) {
-    try {
-      const assetList = await das.getAssetsByOwner(umi, {
-        owner: umi.identity.publicKey
-      });
-      ownedCoreAssets = assetList;
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("No assets found")) {
-        console.warn("No assets found for the current user.");
-        ownedCoreAssets = []; // Set to empty array if no assets found
-      } else {
-        throw error; // Re-throw other errors
-      }
-    }
-  }  
 
   for (const eachGuard of guardsToCheck) {
     const singleGuard = eachGuard.guards;
-
-    let isAllowed = true;
-    let reason = "";
+    let mintableAmount = Number(candyMachine.data.itemsAvailable) - Number(candyMachine.itemsRedeemed);
 
     if (singleGuard.addressGate.__option === "Some") {
       const addressGate = singleGuard.addressGate as Some<AddressGate>;
@@ -213,142 +122,91 @@ export const guardChecker = async (
           publicKey(addressGate.value.address)
         )
       ) {
-        isAllowed = false;
-        reason = "AddressGate: Wrong Address";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "AddressGate: Wrong Address",
+          maxAmount: 0
+        });
+        continue;
       }
     }
 
     if (singleGuard.allocation.__option === "Some") {
-      const allocatedAmount = await allocationChecker(
-        umi,
-        candyMachine,
-        eachGuard
-      );
+      const allocatedAmount = await allocationChecker(umi, candyMachine, eachGuard);
+      mintableAmount = calculateMintable(mintableAmount, allocatedAmount);
+
       if (allocatedAmount < 1) {
-        isAllowed = false;
-        reason = "Allocation of this guard reached";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Allocation of this guard reached",
+          maxAmount: 0
+        });
         console.info(`Guard ${eachGuard.label}; allocation reached`);
+        continue;
       }
     }
 
     if (singleGuard.allowList.__option === "Some") {
       if (!allowlistChecker(allowLists, umi, eachGuard.label)) {
-        isAllowed = false;
-        reason = "Wallet not allowlisted";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Wallet not allowlisted",
+          maxAmount: 0
+        });
         console.info(`Guard ${eachGuard.label} wallet not allowlisted!`);
-      }
-    }
-
-    if (singleGuard.assetBurn.__option === "Some") {
-      const assetBurn = singleGuard.assetBurn as Some<AssetBurn>;
-      const payableAmount = await ownedCoreAssetChecker(
-        ownedCoreAssets,
-        assetBurn.value.requiredCollection
-      );
-      if (payableAmount === 0) {
-        isAllowed = false;
-        reason = "No Asset to burn!";
-        console.info(`${eachGuard.label}: No Asset to burn!`);
-      }
-    }
-
-    if (singleGuard.assetBurnMulti.__option === "Some") {
-      const assetBurnMulti = singleGuard.assetBurnMulti as Some<AssetBurnMulti>;
-      const payableAmount = await ownedCoreAssetChecker(
-        ownedCoreAssets,
-        assetBurnMulti.value.requiredCollection
-      );
-      const multiAmount = payableAmount / assetBurnMulti.value.num;
-      if (payableAmount === 0) {
-        isAllowed = false;
-        reason = "No Asset to burn!";
-        console.info(`${eachGuard.label}: No Asset to burn!`);
-      }
-    }
-
-    if (singleGuard.assetMintLimit.__option === "Some") {
-      const { assetMintLimitAssets, ownedCoreAssets: newOwnedCoreAssets  } = await assetMintLimitChecker(
-        umi,
-        candyMachine,
-        eachGuard,
-        ownedCoreAssets
-      );
-      ownedCoreAssets = newOwnedCoreAssets;
-      if (!assetMintLimitAssets) {
         continue;
-      }
-      let totalAmount: number = 0;
-      assetMintLimitAssets.forEach(element => {
-        if (element.assetMintLimit){
-          totalAmount = totalAmount + element.assetMintLimit
-        }        
-      });
-      if (totalAmount < 1) {
-        isAllowed = false;
-        reason = "Asset Mint limit of all owned NFT reached";
-        console.info(`Guard ${eachGuard.label}; assetMintLimit reached`);
-      }
-    }
-
-    if (singleGuard.assetPayment.__option === "Some") {
-      const assetPayment = singleGuard.assetPayment as Some<AssetPayment>;
-      const payableAmount = await ownedCoreAssetChecker(
-        ownedCoreAssets,
-        assetPayment.value.requiredCollection
-      );
-      if (payableAmount === 0) {
-        isAllowed = false;
-        reason = "No Asset to pay!";
-        console.info(`${eachGuard.label}: No Asset to pay!`);
-      }
-    }
-
-    if (singleGuard.assetPaymentMulti.__option === "Some") {
-      const assetPaymentMulti = singleGuard.assetPaymentMulti as Some<AssetPaymentMulti>;
-      const payableAmount = await ownedCoreAssetChecker(
-        ownedCoreAssets,
-        assetPaymentMulti.value.requiredCollection
-      );
-      const multiAmount = payableAmount / assetPaymentMulti.value.num;
-      if (payableAmount === 0) {
-        isAllowed = false;
-        reason = "No Asset to pay!";
-        console.info(`${eachGuard.label}: No Asset to pay!`);
       }
     }
 
     if (singleGuard.endDate.__option === "Some") {
       const addressGate = singleGuard.endDate as Some<EndDate>;
       if (solanaTime > addressGate.value.date) {
-        isAllowed = false;
-        reason = "Mint time is over!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Mint time is over!",
+          maxAmount: 0
+        });
         console.info(`Guard ${eachGuard.label}; endDate reached!`);
+        continue;
       }
     }
 
     if (singleGuard.freezeSolPayment.__option === "Some") {
       const freezeSolPayment =
         singleGuard.freezeSolPayment as Some<FreezeSolPayment>;
-      const payableAmount =
-        solBalance.basisPoints / freezeSolPayment.value.lamports.basisPoints;
+      const payableAmount = solBalance.basisPoints / freezeSolPayment.value.lamports.basisPoints;
+      mintableAmount = calculateMintable(mintableAmount, Number(payableAmount));
 
-      if (
-        freezeSolPayment.value.lamports.basisPoints > solBalance.basisPoints
-      ) {
-        isAllowed = false;
-        reason = "Not enough SOL";
+      if (freezeSolPayment.value.lamports.basisPoints > solBalance.basisPoints) {
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Not enough SOL",
+          maxAmount: 0
+        });
         console.info(
           `Guard ${eachGuard.label}; freezeSolPayment: not enough SOL`
         );
+        continue;
       }
     }
 
     if (singleGuard.mintLimit.__option === "Some") {
       const amount = await mintLimitChecker(umi, candyMachine, eachGuard);
+      mintableAmount = calculateMintable(mintableAmount, amount);
       if (amount < 1) {
-        isAllowed = false;
-        reason = "Mint limit of this wallet reached";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Mint limit of this wallet reached",
+          maxAmount: 0
+        });
         console.info(`Guard ${eachGuard.label}; mintLimit reached`);
+        continue;
       }
     }
 
@@ -362,120 +220,117 @@ export const guardChecker = async (
         !digitalAssetWithToken ||
         digitalAssetWithToken.token.amount >= freezeTokenPayment.value.amount
       ) {
-        isAllowed = false;
-        reason = "Not enough tokens!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Not enough tokens!",
+          maxAmount: 0
+        });
         console.info(`${eachGuard.label}: Token Balance too low !`);
+        continue;
+      } else {
+        const payableAmount = freezeTokenPayment.value.amount / digitalAssetWithToken.token.amount;
+        mintableAmount = calculateMintable(mintableAmount, Number(payableAmount));
       }
     }
 
     if (singleGuard.nftBurn.__option === "Some") {
       const nftBurn = singleGuard.nftBurn as Some<NftBurn>;
-      const payableAmount = await ownedNftChecker(
-        ownedTokens,
-        nftBurn.value.requiredCollection
-      );
+      const payableAmount = await ownedNftChecker(ownedTokens, nftBurn.value.requiredCollection);
+      mintableAmount = calculateMintable(mintableAmount, payableAmount);
       if (payableAmount === 0) {
-        isAllowed = false;
-        reason = "No NFT to burn!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "No NFT to burn!",
+          maxAmount: 0
+        });
         console.info(`${eachGuard.label}: No Nft to burn!`);
-      }
-    }
-
-    if (singleGuard.nftMintLimit.__option === "Some") {
-      const { nftMintLimitAssets, ownedNfts } = await nftMintLimitChecker(
-        umi,
-        candyMachine,
-        eachGuard,
-        ownedTokens
-      );
-      ownedTokens = ownedNfts;
-      if (!nftMintLimitAssets) {
         continue;
-      }
-      let totalAmount: number = 0;
-      nftMintLimitAssets.forEach(element => {
-        if (element.nftMintLimit){
-          totalAmount = totalAmount + element.nftMintLimit
-        }        
-      });
-      if (totalAmount < 1) {
-        isAllowed = false;
-        reason = "NFT Mint limit of all owned NFT reached";
-        console.info(`Guard ${eachGuard.label}; nftmintLimit reached`);
       }
     }
 
     if (singleGuard.nftGate.__option === "Some") {
       const nftGate = singleGuard.nftGate as Some<NftGate>;
       if (!ownedNftChecker(ownedTokens, nftGate.value.requiredCollection)) {
-        isAllowed = false;
-        reason = "No NFT of the requred held!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "No NFT of the requred held!",
+          maxAmount: 0
+        });
         console.info(`${eachGuard.label}: NftGate no NFT held!`);
+        continue;
       }
     }
 
     if (singleGuard.nftPayment.__option === "Some") {
       const nftPayment = singleGuard.nftPayment as Some<NftPayment>;
-      const payableAmount = await ownedNftChecker(
-        ownedTokens,
-        nftPayment.value.requiredCollection
-      );
+      const payableAmount = await ownedNftChecker(ownedTokens, nftPayment.value.requiredCollection);
+      mintableAmount = calculateMintable(mintableAmount, payableAmount);
       if (payableAmount === 0) {
-        isAllowed = false;
-        reason = "No NFT to pay with!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "No NFT to pay with!",
+          maxAmount: 0
+        });
         console.info(`${eachGuard.label}: nftPayment no NFT to pay with`);
+        continue;
       }
     }
 
     if (singleGuard.redeemedAmount.__option === "Some") {
       const redeemedAmount = singleGuard.redeemedAmount as Some<RedeemedAmount>;
-      const payableAmount =
-        redeemedAmount.value.maximum - candyMachine.itemsRedeemed;
+      const payableAmount = redeemedAmount.value.maximum - candyMachine.itemsRedeemed;
 
+      mintableAmount = calculateMintable(mintableAmount, Number(payableAmount));
       if (redeemedAmount.value.maximum >= candyMachine.itemsRedeemed) {
-        isAllowed = false;
-        reason = "Too many NFTs redeemed!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Too many NFTs redeemed!",
+          maxAmount: 0
+        });
         console.info(
           `${eachGuard.label}: redeemedAmount Too many NFTs redeemed!`
         );
+        continue;
       }
     }
 
-    if (
-      singleGuard.solPayment.__option === "Some" ||
-      singleGuard.solFixedFee.__option === "Some"
-    ) {
+    if (singleGuard.solPayment.__option === "Some") {
       const solPayment = singleGuard.solPayment as Some<SolPayment>;
-      const solFixedFee = singleGuard.solFixedFee as Some<SolFixedFee>;
-      let cost = 0;
       let payableAmount = 0;
-      if (
-        singleGuard.solPayment.__option === "Some" &&
-        solPayment.value.lamports.basisPoints !== BigInt(0)
-      ) {
-        cost += Number(solPayment.value.lamports.basisPoints);
+      if (solPayment.value.lamports.basisPoints !== BigInt(0)) {
+        payableAmount = Number(solBalance.basisPoints) / Number(solPayment.value.lamports.basisPoints);
       }
-      if (
-        singleGuard.solFixedFee.__option === "Some" &&
-        solFixedFee.value.lamports.basisPoints !== BigInt(0)
-      ) {
-        cost += Number(solFixedFee.value.lamports.basisPoints);
-      }
-      payableAmount = Number(solBalance.basisPoints) / cost;
+      mintableAmount = calculateMintable(mintableAmount, Number(payableAmount));
 
-      if (payableAmount === 0) {
-        isAllowed = false;
-        reason = "Not enough SOL!";
+      if (solPayment.value.lamports.basisPoints > solBalance.basisPoints) {
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Not enough SOL!",
+          maxAmount: 0
+        });
         console.info(`${eachGuard.label} SolPayment not enough SOL!`);
+        continue;
       }
     }
 
     if (singleGuard.startDate.__option === "Some") {
       const startDate = singleGuard.startDate as Some<StartDate>;
       if (solanaTime < startDate.value.date) {
-        isAllowed = false;
-        reason = "StartDate not reached!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "StartDate not reached!",
+          maxAmount: 0
+        });
         console.info(`${eachGuard.label} StartDate not reached!`);
+
+        continue;
       }
     }
 
@@ -488,10 +343,17 @@ export const guardChecker = async (
         !digitalAssetWithToken ||
         digitalAssetWithToken.token.amount < tokenBurn.value.amount
       ) {
-        isAllowed = false;
-        reason = "Not enough tokens!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Not enough tokens!",
+          maxAmount: 0
+        });
         console.info(`${eachGuard.label} tokenBurn not enough tokens!`);
+        continue;
       }
+      const payableAmount = tokenBurn.value.amount / digitalAssetWithToken.token.amount;
+      mintableAmount = calculateMintable(mintableAmount, Number(payableAmount));
     }
 
     if (singleGuard.tokenGate.__option === "Some") {
@@ -503,9 +365,14 @@ export const guardChecker = async (
         !digitalAssetWithToken ||
         digitalAssetWithToken.token.amount < tokenGate.value.amount
       ) {
-        isAllowed = false;
-        reason = "Not enough tokens!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Not enough tokens!",
+          maxAmount: 0
+        });
         console.info(`${eachGuard.label} tokenGate not enough tokens!`);
+        continue;
       }
     }
 
@@ -518,10 +385,18 @@ export const guardChecker = async (
         !digitalAssetWithToken ||
         digitalAssetWithToken.token.amount < tokenPayment.value.amount
       ) {
-        isAllowed = false;
-        reason = "Not enough tokens!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Not enough tokens!",
+          maxAmount: 0
+        });
         console.info(`${eachGuard.label} tokenPayment not enough tokens!`);
+        continue;
       }
+      const payableAmount = tokenPayment.value.amount / digitalAssetWithToken.token.amount;
+      mintableAmount = calculateMintable(mintableAmount, Number(payableAmount));
+
     }
 
     if (singleGuard.token2022Payment.__option === "Some") {
@@ -534,76 +409,20 @@ export const guardChecker = async (
         !digitalAssetWithToken ||
         digitalAssetWithToken.token.amount < token2022Payment.value.amount
       ) {
-        isAllowed = false;
-        reason = "Not enough tokens!";
+        guardReturn.push({
+          label: eachGuard.label,
+          allowed: false,
+          reason: "Not enough tokens!",
+          maxAmount: 0
+        });
         console.info(`${eachGuard.label} token2022Payment not enough tokens!`);
+        continue;
       }
-    }
+      const payableAmount = token2022Payment.value.amount / digitalAssetWithToken.token.amount;
+      mintableAmount = calculateMintable(mintableAmount, Number(payableAmount));
 
-    if (isAllowed) {
-      guardReturn.push({
-        label: eachGuard.label,
-        allowed: true,
-      });
-    } else {
-      guardReturn.push({
-        label: eachGuard.label,
-        allowed: false,
-        reason: reason,
-      });
     }
+    guardReturn.push({ label: eachGuard.label, allowed: true, maxAmount: mintableAmount });
   }
-  return { guardReturn, ownedTokens, ownedCoreAssets };
+  return { guardReturn, ownedTokens };
 };
-
-// Separate function for creating a lookup table
-export const createLookupTable = async (
-  umi: Umi,
-  candyMachine: CandyMachine,
-  candyGuard: CandyGuard
-) => {
-  if (!umi.identity.secretKey) {
-    throw new Error("Secret key is required to create a lookup table");
-  }
-
-  try {
-    const slot = await umi.rpc.getSlot({ commitment: "finalized" });
-    const authority = new PublicKey(umi.identity.publicKey.toString());
-    const payer = new PublicKey(umi.identity.publicKey.toString());
-    const [lookupTableInst, lookupTableAddress] = AddressLookupTableProgram.createLookupTable({
-      authority,
-      payer,
-      recentSlot: slot,
-    });
-
-    const addAddressesInst = AddressLookupTableProgram.extendLookupTable({
-      payer: new PublicKey(umi.identity.publicKey.toString()),
-      authority: new PublicKey(umi.identity.publicKey.toString()),
-      lookupTable: lookupTableAddress,
-      addresses: [
-        new PublicKey(candyMachine.publicKey.toString()),
-        new PublicKey(candyGuard.publicKey.toString()),
-        new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"), // SPL Token program
-        // Add more addresses as needed
-      ],
-    });
-
-    const tx = new Transaction().add(lookupTableInst, addAddressesInst);
-    const connection = umi.rpc.connection;
-
-    const secretKey = bs58.decode(umi.identity.secretKey);
-    const identityKeypair = Keypair.fromSecretKey(secretKey);
-
-    const signature = await sendAndConfirmTransaction(connection, tx, [identityKeypair], {
-      commitment: "confirmed",
-    });
-
-    console.log(`Lookup table created and extended. Signature: ${signature}`);
-    console.log(`Lookup table address: ${lookupTableAddress.toBase58()}`);
-
-    return lookupTableAddress;
-  } catch (error) {
-    console.error("Error creating lookup table:", error);
-    throw error;
-  }
-}
