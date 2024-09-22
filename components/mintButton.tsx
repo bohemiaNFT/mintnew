@@ -1,4 +1,4 @@
-import { CandyGuard, CandyMachine } from "@metaplex-foundation/mpl-core-candy-machine";
+import { CandyGuard, CandyMachine, DefaultGuardSet } from "@metaplex-foundation/mpl-core-candy-machine";
 import { DasApiAssetAndAssetMintLimit, GuardReturn } from "../utils/checkerHelper";
 import {
   AddressLookupTableInput,
@@ -410,8 +410,8 @@ interface Props {
   umi: Umi;
   ownedTokens: DigitalAssetWithToken[] | undefined;
   setGuardList: Dispatch<SetStateAction<GuardReturn[]>>;
-  mintsCreated: { mint: PublicKey, offChainMetadata: JsonMetadata | undefined }[] | undefined;
-  setMintsCreated: Dispatch<SetStateAction<{ mint: PublicKey, offChainMetadata: JsonMetadata | undefined }[] | undefined>>;
+  mintsCreated: { mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[] | undefined;
+  setMintsCreated: Dispatch<SetStateAction<{ mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[] | undefined>>;
   onOpen: () => void;
   setCheckEligibility: Dispatch<SetStateAction<boolean>>;
   ownedCoreAssets: DasApiAssetAndAssetMintLimit[] | undefined;
@@ -419,28 +419,28 @@ interface Props {
   mintButtonColor: string;
 }
 
-const ButtonList: React.FC<Props> = ({
+export function ButtonList({
+  umi,
   guardList,
   candyMachine,
   candyGuard,
-  umi,
-  ownedTokens,
+  ownedTokens = [], // provide default empty array
   setGuardList,
   mintsCreated,
   setMintsCreated,
   onOpen,
   setCheckEligibility,
-  ownedCoreAssets,
+  ownedCoreAssets = [],
   setIsMinting,
   mintButtonColor,
-}) => {
+}: Props): JSX.Element {
   const solanaTime = useSolanaTime();
 
   if (!candyMachine || !candyGuard) {
     return <></>;
   }
 
-  // remove duplicates from guardList
+  // remove duplicates from guardList 
   //fucked up bugfix
   let filteredGuardlist = guardList.filter(
     (elem, index, self) =>
@@ -546,5 +546,3 @@ const ButtonList: React.FC<Props> = ({
     </>
   );
 }
-
-export { ButtonList };
