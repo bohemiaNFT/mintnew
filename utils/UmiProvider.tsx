@@ -7,6 +7,7 @@ import { UmiContext } from "./useUmi";
 import { mplCandyMachine } from  "@metaplex-foundation/mpl-core-candy-machine"
 import { createNoopSigner, publicKey, signerIdentity } from "@metaplex-foundation/umi";
 import { dasApi } from '@metaplex-foundation/digital-asset-standard-api';
+import { coreGuards } from '@metaplex-foundation/umi-core-guards'; // Import coreGuards
 
 export const UmiProvider = ({
   endpoint,
@@ -17,9 +18,10 @@ export const UmiProvider = ({
 }) => {
   const wallet = useWallet();
   const umi = createUmi(endpoint)
-  .use(mplTokenMetadata())
-  .use(mplCandyMachine())
-  .use(dasApi())
+    .use(mplTokenMetadata())
+    .use(mplCandyMachine())
+    .use(dasApi())
+    .use(coreGuards()) // Add coreGuards
   if (wallet.publicKey === null) {
     const noopSigner = createNoopSigner(publicKey("11111111111111111111111111111111"))
     umi.use(signerIdentity(noopSigner));
@@ -27,5 +29,5 @@ export const UmiProvider = ({
     umi.use(walletAdapterIdentity(wallet))
   }
 
-  return <UmiContext.Provider value={{ umi }}>{children}</UmiContext.Provider>;
+  return <UmiContext.Provider value={{ umi, coreGuards: umi.coreGuards }}>{children}</UmiContext.Provider>;
 };
