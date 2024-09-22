@@ -66,9 +66,14 @@ const Traits = ({ metadata }: TraitsProps) => {
 };
 
 const shareOnTwitter = (metadata: JsonMetadata) => {
-  const text = `Check out this NFT I just minted! Great piece of art from @BohemiaArtFair, come and get one too :-) 
-  ${metadata.name}`;
+  const text = `Check out this NFT I just minted! Great piece of art from Bohemia ArtFair: ${metadata.name}`;
   const imageUrl = metadata.animation_url ?? metadata.image;
+
+  if (!imageUrl) {
+    console.error("Image URL is undefined");
+    return;
+  }
+
   const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(imageUrl)}`;
 
   window.open(tweetUrl, '_blank');
@@ -101,7 +106,7 @@ export default function Card({
       <Text>{metadata.description}</Text>
       <Button
         colorScheme="twitter"
-        onClick={() => shareOnTwitter(metadata)}
+        onClick={() => metadata && shareOnTwitter(metadata)}
         marginTop={"10px"}
       >
         Share on Twitter
