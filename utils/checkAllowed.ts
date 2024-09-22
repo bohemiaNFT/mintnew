@@ -17,7 +17,7 @@ import {
   TokenGate,
   TokenPayment,
   getMerkleRoot,
-} from "@metaplex-foundation/mpl-candy-machine";
+} from "@metaplex-foundation/mpl-core-candy-machine";
 import {
   SolAmount,
   Some,
