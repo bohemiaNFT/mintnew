@@ -238,6 +238,8 @@
 
                             console.log('Wallet balance in PageContent:', walletBalance);
 
+                            const imageSrc = typeof currentImage === 'string' ? currentImage : currentImage.src;
+
                             return (
                               <>
                                 <style jsx global>{`
@@ -321,8 +323,8 @@
                                               height="auto"
                                               objectFit={'cover'}
                                               alt={"project Image"}
-                                              src={currentImage}
-                                              key={currentImage}
+                                              src={imageSrc}
+                                              key={typeof currentImage === 'string' ? currentImage : currentImage.src}
                                             />
                                           </Box>
                                         </Center>
