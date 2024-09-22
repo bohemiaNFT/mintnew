@@ -180,13 +180,12 @@
                               }
                               setFirstRun(false);
                               
-                              const { guardReturn, ownedTokens, ownedCoreAssets } = await guardChecker(
+                              const { guardReturn, ownedTokens } = await guardChecker(
                                 umi, candyGuard, candyMachine, solanaTime
                               );
 
                               setOwnedTokens(ownedTokens);
                               setGuards(guardReturn);
-                              setOwnedCoreAssets(ownedCoreAssets);
                               setIsAllowed(false);
 
                               let allowed = false;
