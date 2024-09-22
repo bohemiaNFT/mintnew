@@ -403,45 +403,37 @@ const Timer = ({
   return <Text></Text>;
 };
 
-type Props = {
-  umi: Umi;
+interface Props {
   guardList: GuardReturn[];
   candyMachine: CandyMachine | undefined;
-  candyGuard: CandyGuard | undefined;
+  candyGuard: CandyGuard<DefaultGuardSet> | undefined;
+  umi: Umi;
   ownedTokens: DigitalAssetWithToken[] | undefined;
   setGuardList: Dispatch<SetStateAction<GuardReturn[]>>;
-  mintsCreated:
-    | {
-        mint: PublicKey;
-        offChainMetadata: JsonMetadata | undefined;
-      }[]
-    | undefined;
-  setMintsCreated: Dispatch<
-    SetStateAction<
-      | { mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[]
-      | undefined
-    >
-  >;
+  mintsCreated: { mint: PublicKey, offChainMetadata: JsonMetadata | undefined }[] | undefined;
+  setMintsCreated: Dispatch<SetStateAction<{ mint: PublicKey, offChainMetadata: JsonMetadata | undefined }[] | undefined>>;
   onOpen: () => void;
   setCheckEligibility: Dispatch<SetStateAction<boolean>>;
   ownedCoreAssets: DasApiAssetAndAssetMintLimit[] | undefined;
   setIsMinting: Dispatch<SetStateAction<boolean>>;
-};
+  mintButtonColor: string;
+}
 
-export function ButtonList({
-  umi,
+const ButtonList: React.FC<Props> = ({
   guardList,
   candyMachine,
   candyGuard,
-  ownedTokens = [], // provide default empty array
+  umi,
+  ownedTokens,
   setGuardList,
   mintsCreated,
   setMintsCreated,
   onOpen,
   setCheckEligibility,
-  ownedCoreAssets = [],
+  ownedCoreAssets,
   setIsMinting,
-}: Props): JSX.Element {
+  mintButtonColor,
+}) => {
   const solanaTime = useSolanaTime();
 
   if (!candyMachine || !candyGuard) {
@@ -526,10 +518,10 @@ export function ButtonList({
               }}
               key={buttonGuard.label}
               size="lg"
-              backgroundColor={isSoldOut ? "red.500" : "green.500"} // Change color based on isSoldOut
+              backgroundColor={isSoldOut ? "red.500" : mintButtonColor}
               color="white"
-              _hover={{ backgroundColor: isSoldOut ? "red.600" : "green.600" }} // Change hover color based on isSoldOut
-              isDisabled={isSoldOut || !buttonGuard.allowed} // Disable button if sold out or not allowed
+              _hover={{ backgroundColor: isSoldOut ? "red.600" : "green.600" }}
+              isDisabled={isSoldOut || !buttonGuard.allowed}
               isLoading={
                 guardList.find((elem) => elem.label === buttonGuard.label)
                   ?.minting
@@ -538,7 +530,7 @@ export function ButtonList({
                 guardList.find((elem) => elem.label === buttonGuard.label)
                   ?.loadingText
               }
-              borderRadius="full" // Make the button rounder
+              borderRadius="full"
             >
               {isSoldOut ? "Sold Out" : "Mint for 0.2 SOL"}
             </Button>
@@ -554,3 +546,5 @@ export function ButtonList({
     </>
   );
 }
+
+export { ButtonList };
