@@ -1,4 +1,4 @@
-import { createUmi } from "@metaplex-foundation/umi";
+import { createUmi, coreGuards } from "@metaplex-foundation/umi"; // Import coreGuards from umi
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -21,7 +21,8 @@ export const UmiProvider = ({
     .use(web3JsRpc(endpoint)) // Use the web3JsRpc plugin to set the endpoint
     .use(mplTokenMetadata())
     .use(mplCandyMachine()) // Ensure correct plugin usage
-    .use(dasApi());
+    .use(dasApi())
+    .use(coreGuards()); // Add coreGuards
 
   if (wallet.publicKey === null) {
     const noopSigner = createNoopSigner(publicKey("11111111111111111111111111111111"));
