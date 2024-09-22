@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Audiowide&display=swap');
+
+:root {
+  --font-audiowide: 'Audiowide', cursive;
+}
+
+html {
+  background-image: url('/back.jpg') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+}
+
+body {
+  font-family: var(--font-audiowide);
+  min-height: 100vh;
+  color: white;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  color: white;
+}
+
+html,
+body {  
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    color-scheme: dark;
+  }
+}
+
+button.wallet-adapter-button-trigger {
+  cursor: pointer;
+  color: white !important;
+  border: 1px solid rgb(var(--tertiary-background-rgb)) !important;
+  border-radius: var(--border-radius) !important;
+  background-color: rgb(var(--secondary-background-rgb)) !important;
+  font-size: 24px !important;
+  font-family: var(--font-audiowide) !important;
+  display: block !important; /* Add this line */
+  margin: 0 auto !important; /* Add this line */
+}
+
+button.wallet-adapter-button-trigger:hover {                
+  background-color: rgb(var(--hover-background-rgb)) !important;
+}
+
+h1, h2, h3, h4, h5, h6, p, span, div, a, button, input, textarea, select {
+  color: white !important;
+}
+
+::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
