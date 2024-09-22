@@ -99,8 +99,9 @@ const useCandyMachine = (
 
         if (candyMachine && candyGuard) {
           // Fetch mint price from candy machine or guard
-          const price = candyGuard.guards.solPayment
-            ? Number(candyGuard.guards.solPayment.lamports) / 1e9
+          const solPayment = candyGuard.guards.solPayment;
+          const price = solPayment && 'lamports' in solPayment
+            ? Number(solPayment.lamports) / 1e9
             : 0;
           setMintPrice(price);
         }
