@@ -7,7 +7,7 @@ import { UmiContext } from "./useUmi";
 import { mplCandyMachine } from "@metaplex-foundation/mpl-core-candy-machine"; // Correct package
 import { createNoopSigner, publicKey, signerIdentity } from "@metaplex-foundation/umi";
 import { dasApi } from '@metaplex-foundation/digital-asset-standard-api';
-import { rpcWeb3js } from "@metaplex-foundation/umi-rpc-web3js"; // Correct plugin for RPC
+import { rpc } from "@metaplex-foundation/umi-rpc-web3js"; // Correct plugin for RPC
 
 export const UmiProvider = ({
   endpoint,
@@ -18,7 +18,7 @@ export const UmiProvider = ({
 }) => {
   const wallet = useWallet();
   const umi = createUmi()
-    .use(rpcWeb3js(endpoint)) // Use the rpcWeb3js plugin to set the endpoint
+    .use(rpc(endpoint)) // Use the rpc plugin to set the endpoint
     .use(mplTokenMetadata())
     .use(mplCandyMachine()) // Ensure correct plugin usage
     .use(dasApi());
