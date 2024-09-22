@@ -181,7 +181,7 @@
                               setFirstRun(false);
                               
                               const { guardReturn, ownedTokens } = await guardChecker(
-                                umi, candyGuard, candyMachine as unknown as import("@metaplex-foundation/mpl-candy-machine").CandyMachine, solanaTime
+                                umi, candyGuard, candyMachine, solanaTime
                               );
 
                               setOwnedTokens(ownedTokens);
