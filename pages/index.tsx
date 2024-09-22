@@ -46,12 +46,12 @@
                           useEffect(() => {
                             (async () => {
                               if (checkEligibility) {
-                                if (!candyMachineId) {
-                                  console.error("No candy machine in .env!");
+                                if (!candyMachineId || candyMachineId === "11111111111111111111111111111111") {
+                                  console.error("No valid candy machine in .env!");
                                   if (!toast.isActive("no-cm")) {
                                     toast({
                                       id: "no-cm",
-                                      title: "No candy machine in .env!",
+                                      title: "No valid candy machine in .env!",
                                       description: "Add your candy machine address to the .env file!",
                                       status: "error",
                                       duration: 999999,
@@ -140,6 +140,19 @@
                           const umiWithWallet = useMemo(() => wallet.connected ? (umi.use(walletAdapterIdentity(wallet)) as unknown as Umi) : umi, [umi, wallet]);
                           const walletBalance = useWalletBalance(umiWithWallet);
 
+                          if (!process.env.NEXT_PUBLIC_CANDY_MACHINE_ID) {
+                            console.error("No candy machine in .env!")
+                            if (!toast.isActive('no-cm')) {
+                              toast({
+                                id: 'no-cm',
+                                title: 'No candy machine in .env!',
+                                description: "Add your candy machine address to the .env file!",
+                                status: 'error',
+                                duration: 999999,
+                                isClosable: true,
+                              })
+                            }
+                          }
                           const candyMachineId: PublicKey = useMemo(() => {
                             if (process.env.NEXT_PUBLIC_CANDY_MACHINE_ID) {
                               return publicKey(process.env.NEXT_PUBLIC_CANDY_MACHINE_ID);
@@ -157,22 +170,8 @@
                             }
                             // eslint-disable-next-line react-hooks/exhaustive-deps
                           }, []);
-
-                          if (!process.env.NEXT_PUBLIC_CANDY_MACHINE_ID) {
-                            console.error("No candy machine in .env!")
-                            if (!toast.isActive('no-cm')) {
-                              toast({
-                                id: 'no-cm',
-                                title: 'No candy machine in .env!',
-                                description: "Add your candy machine address to the .env file!",
-                                status: 'error',
-                                duration: 999999,
-                                isClosable: true,
-                              })
-                            }
-                          }
-                          const { candyMachine, setCandyMachine, candyGuard, mintPrice } = useCandyMachine(umi, candyMachineId, checkEligibility, setCheckEligibility, firstRun, setFirstRun);
-
+                          const { candyMachine, candyGuard } = useCandyMachine(umi, candyMachineId, checkEligibility, setCheckEligibility, firstRun, setFirstRun);
+                        
                           useEffect(() => {
                             const checkEligibilityFunc = async () => {
                               if (!candyMachine || !candyGuard || !checkEligibility || isShowNftOpen) {
