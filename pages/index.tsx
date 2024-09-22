@@ -13,7 +13,7 @@ import { guardChecker } from "../utils/checkAllowed";
 import { Center, Card, CardHeader, CardBody, StackDivider, Heading, Stack, useToast, Text, Skeleton, useDisclosure, Button, Modal, ModalBody, ModalCloseButton, ModalContent, Image, ModalHeader, ModalOverlay, Box, Divider, VStack, Flex, Progress } from '@chakra-ui/react';
 import { ButtonList } from "../components/mintButton";
 import { DasApiAssetAndAssetMintLimit, GuardReturn } from "../utils/checkerHelper";
-import { ShowNft } from "../components/showNft";
+import ShowNft from "../components/showNft";
 import { InitializeModal } from "../components/initializeModal";
 import { image, headerText, workimage } from "../settings";
 import { useSolanaTime } from "@/utils/SolanaTimeContext";
@@ -39,7 +39,6 @@ const useCandyMachine = (
 ) => {
   const [candyMachine, setCandyMachine] = useState<CandyMachine>();
   const [candyGuard, setCandyGuard] = useState<CandyGuard>();
-  const [mintPrice, setMintPrice] = useState<number | null>(null);
   const toast = useToast();
 
   useEffect(() => {
@@ -97,14 +96,6 @@ const useCandyMachine = (
         }
         setCandyGuard(candyGuard);
 
-        if (candyMachine && candyGuard) {
-          // Fetch mint price from candy machine or guard
-          const price = candyGuard.guards.solPayment
-            ? Number(candyGuard.guards.solPayment.lamports) / 1e9
-            : 0;
-          setMintPrice(price);
-        }
-
         if (firstRun){
           setfirstRun(false)
         }
@@ -112,7 +103,7 @@ const useCandyMachine = (
     })();
   }, [umi, checkEligibility]);
 
-  return { candyMachine, setCandyMachine, candyGuard, mintPrice };
+  return { candyMachine, setCandyMachine, candyGuard };
 };
 
 export default function Home() {
@@ -169,7 +160,7 @@ export default function Home() {
       })
     }
   }
-  const { candyMachine, setCandyMachine, candyGuard, mintPrice } = useCandyMachine(umi, candyMachineId, checkEligibility, setCheckEligibility, firstRun, setFirstRun);
+  const { candyMachine, setCandyMachine, candyGuard } = useCandyMachine(umi, candyMachineId, checkEligibility, setCheckEligibility, firstRun, setFirstRun);
 
   useEffect(() => {
     const checkEligibilityFunc = async () => {
