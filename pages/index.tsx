@@ -110,7 +110,7 @@
             }
           }
         })();
-      }, [umi, checkEligibility]);
+      }, [umi, checkEligibility, candyMachineId, firstRun, setfirstRun, toast]);
 
       return { candyMachine, setCandyMachine, candyGuard, mintPrice };
     };
@@ -230,10 +230,8 @@
         const counterBgColor = availableNFTs === 0 ? "red.500" : "green.500"; // Set counter background color based on available NFTs
         const mintButtonColor = availableNFTs === 0 ? "red" : "green"; // Set mint button color based on available NFTs
 
-        useEffect(() => {
-          console.log('Wallet connected:', wallet.connected);
           console.log('Wallet balance in PageContent:', walletBalance);
-        }, [wallet.connected, walletBalance]);
+        }, []);
 
         return (
           <>
