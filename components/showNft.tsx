@@ -68,7 +68,7 @@ const Traits = ({ metadata }: TraitsProps) => {
 const shareOnTwitter = (metadata: JsonMetadata) => {
   const text = `Check out this NFT I just minted! Great piece of art from @BohemiaArtFair, come and get one too :-) 
   ${metadata.name}`;
-  const imageUrl = metadata.animation_url ?? metadata.image;
+  const imageUrl = metadata.animation_url ?? metadata.image ?? '';
   const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(imageUrl)}`;
 
   window.open(tweetUrl, '_blank');
