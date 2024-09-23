@@ -179,13 +179,13 @@ export default function Home() {
       }
       setFirstRun(false);
       
-      const { guardReturn, ownedTokens, ownedCoreAssets = [] } = await guardChecker(
+      const { guardReturn, ownedTokens, ownedNfts } = await guardChecker(
         umi, candyGuard, candyMachine, solanaTime
       );
 
-      setOwnedTokens(ownedTokens);
+      setOwnedTokens(ownedTokens || ownedNfts);
       setGuards(guardReturn);
-      setOwnedCoreAssets(ownedCoreAssets);
+      setOwnedCoreAssets(ownedCoreAssets || []); // Handle the case where ownedCoreAssets might not exist
       setIsAllowed(false);
 
       let allowed = false;
