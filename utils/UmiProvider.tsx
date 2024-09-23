@@ -3,6 +3,7 @@ import { Umi, createUmi } from '@metaplex-foundation/umi';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
 import { web3JsRpc } from '@metaplex-foundation/umi-rpc-web3js';
+import { createDefaultUmi } from '@metaplex-foundation/umi-bundle-defaults';
 
 const UmiContext = createContext<Umi | undefined>(undefined);
 
@@ -19,8 +20,7 @@ export const UmiProvider: React.FC<{ endpoint: string; children: React.ReactNode
   const [umi, setUmi] = useState<Umi | undefined>(undefined);
 
   useEffect(() => {
-    const umiInstance = createUmi();
-    umiInstance.use(web3JsRpc(endpoint));
+    const umiInstance = createDefaultUmi(endpoint);
     setUmi(umiInstance);
   }, [endpoint]);
 
