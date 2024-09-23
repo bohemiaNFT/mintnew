@@ -140,6 +140,7 @@ export default function Home() {
   const walletBalance = useWalletBalance(umiWithWallet);
 
   const candyMachineId: PublicKey = useMemo(() => {
+    console.log('NEXT_PUBLIC_CANDY_MACHINE_ID:', process.env.NEXT_PUBLIC_CANDY_MACHINE_ID); // Add this line
     if (process.env.NEXT_PUBLIC_CANDY_MACHINE_ID) {
       return publicKey(process.env.NEXT_PUBLIC_CANDY_MACHINE_ID);
     } else {
