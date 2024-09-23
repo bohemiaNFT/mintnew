@@ -22,7 +22,7 @@ export const UmiProvider = ({
     .use(dasApi());
 
   // Ensure coreGuards is included if required
-  umi.coreGuards = umi.coreGuards || {}; // Initialize coreGuards if it's required and missing
+  (umi as any).coreGuards = (umi as any).coreGuards || {}; // Type assertion to bypass type checking
 
   if (wallet.publicKey === null) {
     const noopSigner = createNoopSigner(publicKey("11111111111111111111111111111111"));
