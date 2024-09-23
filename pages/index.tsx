@@ -111,7 +111,7 @@ const useCandyMachine = (
         }
       }
     })();
-  }, [umi, checkEligibility]);
+  }, [umi, checkEligibility, candyMachineId, firstRun, setfirstRun, toast]);
 
   return { candyMachine, setCandyMachine, candyGuard, mintPrice };
 };
@@ -234,7 +234,7 @@ export default function Home() {
     useEffect(() => {
       console.log('Wallet connected:', wallet.connected);
       console.log('Wallet balance in PageContent:', walletBalance);
-    }, [wallet.connected, walletBalance]);
+    }, []); // Removed unnecessary dependencies
 
     return (
       <>
@@ -388,9 +388,9 @@ export default function Home() {
               <ShowNft nfts={mintsCreated} />
             </ModalBody>
           </ModalContent>
-              </Modal>
-            </>
-          );
+        </Modal>
+      </>
+    );
   };
 
   return (
