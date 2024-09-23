@@ -21,6 +21,9 @@ export const UmiProvider = ({
     .use(mplCandyMachine())
     .use(dasApi());
 
+  // Ensure coreGuards is included if required
+  umi.coreGuards = umi.coreGuards || {}; // Initialize coreGuards if it's required and missing
+
   if (wallet.publicKey === null) {
     const noopSigner = createNoopSigner(publicKey("11111111111111111111111111111111"));
     umi.use(signerIdentity(noopSigner));
