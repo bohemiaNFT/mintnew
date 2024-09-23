@@ -4,9 +4,10 @@ import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ReactNode } from "react";
 import { UmiContext } from "./useUmi";
-import { mplCandyMachine } from  "@metaplex-foundation/mpl-core-candy-machine"
+import { mplCandyMachine } from "@metaplex-foundation/mpl-core-candy-machine";
 import { createNoopSigner, publicKey, signerIdentity } from "@metaplex-foundation/umi";
 import { dasApi } from '@metaplex-foundation/digital-asset-standard-api';
+import { coreGuards } from '@metaplex-foundation/umi-core-guards';
 
 export const UmiProvider = ({
   endpoint,
@@ -23,7 +24,8 @@ export const UmiProvider = ({
   const umi = createUmi(endpoint)
     .use(mplTokenMetadata())
     .use(mplCandyMachine())
-    .use(dasApi());
+    .use(dasApi())
+    .use(coreGuards()); // Ensure coreGuards is included
 
   // Debug: Check if the wallet publicKey is correctly retrieved
   console.log("Wallet PublicKey:", wallet.publicKey);
