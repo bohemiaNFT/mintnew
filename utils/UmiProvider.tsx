@@ -8,8 +8,8 @@ import { mplCandyMachine } from "@metaplex-foundation/mpl-core-candy-machine";
 import { createNoopSigner, publicKey, signerIdentity } from "@metaplex-foundation/umi";
 import { dasApi } from '@metaplex-foundation/digital-asset-standard-api';
 
-// Define the Umi type locally
-interface Umi {
+// Define a custom type that extends the Umi instance
+interface CustomUmi {
   coreGuards?: Record<string, unknown>;
   use: (plugin: any) => this;
   // Add other properties and methods as needed
@@ -23,8 +23,9 @@ export const UmiProvider = ({
   children: ReactNode;
 }) => {
   const wallet = useWallet();
-  const umi = createUmi(endpoint) as Umi
-    .use(mplTokenMetadata())
+  const umi = createUmi(endpoint) as CustomUmi;
+
+  umi.use(mplTokenMetadata())
     .use(mplCandyMachine())
     .use(dasApi());
 
