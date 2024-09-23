@@ -223,7 +223,7 @@ export default function Home() {
     refreshCounters();
   }, [onShowNftClose, refreshCounters]);
 
-  const PageContent = ({ currentImage }) => {
+  const PageContent = ({ currentImage }: { currentImage: string }) => {
     const availableNFTs = candyMachine ? Number(candyMachine.data.itemsAvailable) - Number(candyMachine.itemsRedeemed) : 0;
     const totalNFTs = candyMachine ? Number(candyMachine.data.itemsAvailable) : 0;
     const progress = totalNFTs > 0 ? ((totalNFTs - availableNFTs) / totalNFTs) * 100 : 0;
