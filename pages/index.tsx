@@ -179,7 +179,7 @@ export default function Home() {
       }
       setFirstRun(false);
       
-      const { guardReturn, ownedTokens, ownedCoreAssets } = await guardChecker(
+      const { guardReturn, ownedTokens, ownedCoreAssets = [] } = await guardChecker(
         umi, candyGuard, candyMachine, solanaTime
       );
 
