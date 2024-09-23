@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Umi, createUmi } from '@metaplex-foundation/umi';
 import { useWallet } from '@solana/wallet-adapter-react';
+import { createDefaultUmi } from '@metaplex-foundation/umi-bundle-defaults';
 
 const UmiContext = createContext<Umi | undefined>(undefined);
 
@@ -17,7 +18,7 @@ export const UmiProvider: React.FC<{ endpoint: string; children: React.ReactNode
   const [umi, setUmi] = useState<Umi | undefined>(undefined);
 
   useEffect(() => {
-    const umiInstance = createUmi(endpoint);
+    const umiInstance = createDefaultUmi(endpoint);
     setUmi(umiInstance);
   }, [endpoint]);
 
