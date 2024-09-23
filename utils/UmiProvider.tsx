@@ -1,34 +1,31 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Umi, createUmi } from '@metaplex-foundation/umi';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
-import { web3JsRpc } from '@metaplex-foundation/umi-rpc-web3js';
-import { createDefaultUmi } from '@metaplex-foundation/umi-bundle-defaults';
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
+import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { ReactNode } from "react";
+import { UmiContext } from "./useUmi";
+import { mplCandyMachine } from  "@metaplex-foundation/mpl-core-candy-machine"
+import { createNoopSigner, publicKey, signerIdentity } from "@metaplex-foundation/umi";
+import { dasApi } from '@metaplex-foundation/digital-asset-standard-api';
 
-const UmiContext = createContext<Umi | undefined>(undefined);
-
-export const useUmi = (): Umi => {
-  const context = useContext(UmiContext);
-  if (!context) {
-    throw new Error('useUmi must be used within a UmiProvider');
-  }
-  return context;
-};
-
-export const UmiProvider: React.FC<{ endpoint: string; children: React.ReactNode }> = ({ endpoint, children }) => {
+export const UmiProvider = ({
+  endpoint,
+  children,
+}: {
+  endpoint: string;
+  children: ReactNode;
+}) => {
   const wallet = useWallet();
-  const [umi, setUmi] = useState<Umi | undefined>(undefined);
+  const umi = createUmi(endpoint)
+  .use(mplTokenMetadata())
+  .use(mplCandyMachine())
+  .use(dasApi())
+  if (wallet.publicKey === null) {
+    const noopSigner = createNoopSigner(publicKey("11111111111111111111111111111111"))
+    umi.use(signerIdentity(noopSigner));
+  } else {
+    umi.use(walletAdapterIdentity(wallet))
+  }
 
-  useEffect(() => {
-    const umiInstance = createDefaultUmi(endpoint);
-    setUmi(umiInstance);
-  }, [endpoint]);
-
-  useEffect(() => {
-    if (umi && wallet.connected) {
-      umi.use(walletAdapterIdentity(wallet));
-    }
-  }, [umi, wallet]);
-
-  return <UmiContext.Provider value={umi}>{children}</UmiContext.Provider>;
+  return <UmiContext.Provider value={{ umi }}>{children}</UmiContext.Provider>;
 };
