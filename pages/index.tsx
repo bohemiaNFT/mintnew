@@ -136,7 +136,7 @@ export default function Home() {
   const [isMinting, setIsMinting] = useState(false);
   const router = useRouter();
   const wallet = useWallet();
-  const umiWithWallet = useMemo(() => wallet.connected ? umi.use(walletAdapterIdentity(wallet)) : umi, [umi, wallet]);
+  const umiWithWallet = useMemo(() => wallet.connected ? umi.use(walletAdapterIdentity(wallet)) : umi, [umi, wallet]) as Umi;
   const walletBalance = useWalletBalance(umiWithWallet);
 
   const candyMachineId: PublicKey = useMemo(() => {
