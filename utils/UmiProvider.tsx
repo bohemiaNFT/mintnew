@@ -8,6 +8,7 @@ import { mplCandyMachine } from "@metaplex-foundation/mpl-core-candy-machine";
 import { createNoopSigner, publicKey, signerIdentity } from "@metaplex-foundation/umi";
 import { dasApi } from '@metaplex-foundation/digital-asset-standard-api';
 import { coreGuards } from '@metaplex-foundation/umi-core-guards';
+import { some, sol, dateTime } from '@metaplex-foundation/umi';
 
 export const UmiProvider = ({
   endpoint,
@@ -43,8 +44,35 @@ export const UmiProvider = ({
     console.log("Using Wallet Adapter Identity");
   }
 
-  // Debug: Check if Umi instance is correctly created
-  console.log("Umi Instance:", umi);
+  // Define guard groups
+  const guardGroups = [
+    {
+      label: 'early',
+      guards: {
+        solPayment: some({ lamports: sol(1), destination: 'treasury' }),
+        startDate: some({ date: dateTime('2022-10-18T16:00:00Z') }),
+        endDate: some({ date: dateTime('2022-10-18T17:00:00Z') }),
+        botTax: some({ lamports: sol(0.001), lastInstruction: true }),
+      },
+    },
+    {
+      label: 'late',
+      guards: {
+        solPayment: some({ lamports: sol(2), destination: 'treasury' }),
+        startDate: some({ date: dateTime('2022-10-18T17:00:00Z') }),
+        botTax: some({ lamports: sol(0.001), lastInstruction: true }),
+      },
+    },
+  ];
+
+  // Debug: Check if guard groups are correctly defined
+  console.log("Guard Groups:", guardGroups);
+
+  // Use guard groups in Umi instance
+  umi.use({ guardGroups });
+
+  // Debug: Check if Umi instance is correctly created with guard groups
+  console.log("Umi Instance with Guard Groups:", umi);
 
   return <UmiContext.Provider value={{ umi }}>{children}</UmiContext.Provider>;
 };
