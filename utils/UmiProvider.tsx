@@ -1,4 +1,4 @@
-import { createUmi, Umi as BaseUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -8,9 +8,11 @@ import { mplCandyMachine } from "@metaplex-foundation/mpl-core-candy-machine";
 import { createNoopSigner, publicKey, signerIdentity } from "@metaplex-foundation/umi";
 import { dasApi } from '@metaplex-foundation/digital-asset-standard-api';
 
-// Extend the Umi type to include coreGuards
-interface Umi extends BaseUmi {
+// Define the Umi type locally
+interface Umi {
   coreGuards?: Record<string, unknown>;
+  use: (plugin: any) => this;
+  // Add other properties and methods as needed
 }
 
 export const UmiProvider = ({
@@ -21,7 +23,7 @@ export const UmiProvider = ({
   children: ReactNode;
 }) => {
   const wallet = useWallet();
-  const umi: Umi = createUmi(endpoint)
+  const umi = createUmi(endpoint) as Umi
     .use(mplTokenMetadata())
     .use(mplCandyMachine())
     .use(dasApi());
