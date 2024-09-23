@@ -1,4 +1,4 @@
-import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { createUmi, GuardRepository } from "@metaplex-foundation/umi-bundle-defaults";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
 import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { useWallet } from "@solana/wallet-adapter-react";
@@ -10,7 +10,7 @@ import { dasApi } from '@metaplex-foundation/digital-asset-standard-api';
 
 // Define a custom type that extends the Umi instance
 interface CustomUmi {
-  coreGuards?: Record<string, unknown>;
+  coreGuards?: GuardRepository;
   use: (plugin: any) => this;
   // Add other properties and methods as needed
 }
