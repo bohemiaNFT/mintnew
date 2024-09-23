@@ -16,16 +16,33 @@ export const UmiProvider = ({
   children: ReactNode;
 }) => {
   const wallet = useWallet();
+
+  // Debug: Check if the endpoint is correctly passed
+  console.log("Endpoint:", endpoint);
+
   const umi = createUmi(endpoint)
-  .use(mplTokenMetadata())
-  .use(mplCandyMachine())
-  .use(dasApi())
+    .use(mplTokenMetadata())
+    .use(mplCandyMachine())
+    .use(dasApi());
+
+  // Debug: Check if the wallet publicKey is correctly retrieved
+  console.log("Wallet PublicKey:", wallet.publicKey);
+
   if (wallet.publicKey === null) {
-    const noopSigner = createNoopSigner(publicKey("11111111111111111111111111111111"))
+    const noopSigner = createNoopSigner(publicKey("11111111111111111111111111111111"));
     umi.use(signerIdentity(noopSigner));
+
+    // Debug: Check if noopSigner is correctly created
+    console.log("Noop Signer:", noopSigner);
   } else {
-    umi.use(walletAdapterIdentity(wallet))
+    umi.use(walletAdapterIdentity(wallet));
+
+    // Debug: Check if walletAdapterIdentity is correctly used
+    console.log("Using Wallet Adapter Identity");
   }
+
+  // Debug: Check if Umi instance is correctly created
+  console.log("Umi Instance:", umi);
 
   return <UmiContext.Provider value={{ umi }}>{children}</UmiContext.Provider>;
 };
