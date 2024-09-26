@@ -1,12 +1,42 @@
-.wallet { 
-  display: flex;
-  padding: 3rem;
-  flex-direction: row-reverse;
+@import url('https://fonts.googleapis.com/css2?family=Audiowide&display=swap');
+.wallet, .center, .form, .field, .loading, .success {
+  font-family: 'Audiowide', cursive;
+  color: white; /* Add this line */
+}
+
+.wallet {
+  display: inline-block;
+  padding: 1rem;
+  margin-bottom: -2rem; /* Add this line to move the button closer to the card */
+}
+
+.wallet :global(.wallet-adapter-button) {
+  white-space: nowrap;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: auto !important; 
+  height: auto !important;
+  padding: 0 15px !important;
+}
+
+.wallet :global(.wallet-adapter-button-start-icon),
+.wallet :global(.wallet-adapter-button-end-icon) {
+  margin: 0 8px 0 0 !important;
+  height: 24px !important;
+  width: 24px !important;
+}
+
+.wallet :global(.wallet-adapter-button-text) {
+  margin: 0 !important;
+  font-size: 16px !important;
 }
 
 .center {
   position: relative;
-  padding: 3rem;
+  padding: 1rem;
+  padding-top: 0rem; /* Reduce top padding to bring content up */
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
@@ -23,7 +53,7 @@
   flex-direction: row;
   align-items: center;
   gap: 1rem;
-  color: rgb(var(--on-accent-rgb));
+  color: white; /* Change this line */
   background-color: rgb(var(--accent-rgb));
   border: none;
   border-radius: var(--border-radius);
@@ -63,7 +93,7 @@
   border: 1px solid rgb(var(--tertiary-background-rgb));
   border-radius: var(--border-radius);
   background: rgb(var(--secondary-background-rgb));
-  color: rgb(var(--hint-rgb));
+  color: white; /* Change this line */
   font-size: 1rem;
   line-height: 1.5;
 }
@@ -110,7 +140,7 @@
 
 .success code {
   font-family: var(--font-mono);
-  color: rgb(var(--secondary-foreground-rgb));
+  color: white; /* Change this line */
 }
 
 .success svg {
@@ -124,5 +154,9 @@
 }
 
 .success:hover code {
-  color: rgb(var(--accent-rgb));
+  color: white; /* Change this line */
+}
+
+.wallet :global(.wallet-adapter-button) {
+  white-space: nowrap;
 }
