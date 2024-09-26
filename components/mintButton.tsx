@@ -395,29 +395,23 @@ const Timer = ({
   return <Text></Text>;
 };
 
-type Props = {
-  umi: Umi;
+interface Props {
   guardList: GuardReturn[];
   candyMachine: CandyMachine | undefined;
   candyGuard: CandyGuard | undefined;
+  umi: Umi;
   ownedTokens: DigitalAssetWithToken[] | undefined;
   setGuardList: Dispatch<SetStateAction<GuardReturn[]>>;
-  mintsCreated:
-    | {
-        mint: PublicKey;
-        offChainMetadata: JsonMetadata | undefined;
-      }[]
-    | undefined;
-  setMintsCreated: Dispatch<
-    SetStateAction<
-      | { mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[]
-      | undefined
-    >
-  >;
+  mintsCreated: { mint: PublicKey, offChainMetadata: JsonMetadata | undefined }[] | undefined;
+  setMintsCreated: Dispatch<SetStateAction<{ mint: PublicKey, offChainMetadata: JsonMetadata | undefined }[] | undefined>>;
   onOpen: () => void;
   setCheckEligibility: Dispatch<SetStateAction<boolean>>;
   ownedCoreAssets: DasApiAssetAndAssetMintLimit[] | undefined;
-};
+  setIsMinting: Dispatch<SetStateAction<boolean>>; // Add this line
+  mintButtonColor: string; // Add this line
+  availableNFTs: number; // Add this line
+  totalNFTs: number; // Add this line
+}
 
 export function ButtonList({
   umi,
