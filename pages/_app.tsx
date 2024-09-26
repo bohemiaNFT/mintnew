@@ -29,7 +29,8 @@ export default function App({ Component, pageProps }: AppProps) {
     endpoint = process.env.NEXT_PUBLIC_RPC;
   }
   const wallets = useMemo(
-    () => [new PhantomWalletAdapter()],
+    () => [
+    ],
     []
   );
   return (
