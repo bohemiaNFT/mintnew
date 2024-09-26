@@ -1,548 +1,419 @@
-import { CandyGuard, CandyMachine, DefaultGuardSet } from "@metaplex-foundation/mpl-core-candy-machine";
-import { DasApiAssetAndAssetMintLimit, GuardReturn } from "../utils/checkerHelper";
 import {
-  AddressLookupTableInput,
-  KeypairSigner,
   PublicKey,
-  Signer,
-  Transaction,
+  publicKey,
   Umi,
-  createBigInt,
-  generateSigner,
-  none,
-  publicKey,  
-  signAllTransactions,
-  sol,
-  some,
-  transactionBuilder,
 } from "@metaplex-foundation/umi";
-import {
-  DigitalAsset,
-  DigitalAssetWithToken,
-  JsonMetadata,
-  fetchDigitalAsset,
-  fetchJsonMetadata,
-} from "@metaplex-foundation/mpl-token-metadata";
-import { mintText } from "../settings";
-import {
-  Box,
-  Button,
-  Flex,
-  HStack,
-  Heading,
-  SimpleGrid,
-  Text,
-  Tooltip,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  NumberIncrementStepper,
-  NumberDecrementStepper,
-  VStack,
-  Divider,
-  createStandaloneToast,
-} from "@chakra-ui/react";
-import { fetchAddressLookupTable } from "@metaplex-foundation/mpl-toolbox";
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
-import {
-  chooseGuardToUse,
-  routeBuilder,
-  mintArgsBuilder,
-  GuardButtonList,
-  buildTx,
-  getRequiredCU,
-  buildTxs,
-} from "../utils/mintHelper";
+import { DigitalAssetWithToken, JsonMetadata } from "@metaplex-foundation/mpl-token-metadata";
+import dynamic from "next/dynamic";
+import { Dispatch, SetStateAction, useEffect, useMemo, useState, useCallback } from "react";
+import { useUmi } from "../utils/useUmi";
+import { fetchCandyMachine, safeFetchCandyGuard, CandyGuard, CandyMachine } from "@metaplex-foundation/mpl-core-candy-machine"
+import styles from "../styles/Home.module.css";
+import { guardChecker } from "../utils/checkAllowed";
+import { Center, Card, CardHeader, CardBody, StackDivider, Heading, Stack, useToast, Text, Skeleton, useDisclosure, Button, Modal, ModalBody, ModalCloseButton, ModalContent, Image, ModalHeader, ModalOverlay, Box, Divider, VStack, Flex, Progress } from '@chakra-ui/react';
+import { ButtonList } from "../components/mintButton";
+import { DasApiAssetAndAssetMintLimit, GuardReturn } from "../utils/checkerHelper";
+import { ShowNft } from "../components/showNft";
+import { InitializeModal } from "../components/initializeModal";
+import { image, headerText, workimage } from "../settings";
 import { useSolanaTime } from "@/utils/SolanaTimeContext";
-import { verifyTx } from "@/utils/verifyTx";
-import { base58 } from "@metaplex-foundation/umi/serializers";
-import { AssetV1, fetchAssetV1 } from "@metaplex-foundation/mpl-core";
+import { useRouter } from 'next/router';
+import { useWalletBalance } from '../utils/useWalletBalance';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { walletAdapterIdentity } from '@metaplex-foundation/umi-signer-wallet-adapters';
+import { SolAmount } from '@metaplex-foundation/umi';
 
-// Update the formatSolAmount function to handle bigint
-function formatSolAmount(lamports: number | bigint): string {
-  const solAmount = typeof lamports === 'bigint' ? Number(lamports) / 1e9 : lamports / 1e9; // Convert lamports to SOL
-  return solAmount.toFixed(2); // Format to 2 decimal places
-}
+const WalletMultiButtonDynamic = dynamic(
+  async () =>
+    (await import("@solana/wallet-adapter-react-ui")).WalletMultiButton,
+  { ssr: false }
+);
 
-const updateLoadingText = (
-  loadingText: string | undefined,
-  guardList: GuardReturn[],
-  label: string,
-  setGuardList: Dispatch<SetStateAction<GuardReturn[]>>
-) => {
-  const guardIndex = guardList.findIndex((g) => g.label === label);
-  if (guardIndex === -1) {
-    console.error("guard not found");
-    return;
-  }
-  const newGuardList = [...guardList];
-  newGuardList[guardIndex].loadingText = loadingText;
-  setGuardList(newGuardList);
-};
-
-const fetchNft = async (umi: Umi, nftAdress: PublicKey) => {
-  let digitalAsset: AssetV1 | undefined;
-  let jsonMetadata: JsonMetadata | undefined;
-  try {
-    digitalAsset = await fetchAssetV1(umi, nftAdress);
-    jsonMetadata = await fetchJsonMetadata(umi, digitalAsset.uri);
-  } catch (e) {
-    console.error(e);
-    createStandaloneToast().toast({
-      title: "Nft could not be fetched!",
-      description: "Please check your Wallet instead.",
-      status: "info",
-      duration: 900,
-      isClosable: true,
-    });
-  }
-
-  return { digitalAsset, jsonMetadata };
-};
-
-const mintClick = async (
+const useCandyMachine = (
   umi: Umi,
-  guard: GuardReturn,
-  candyMachine: CandyMachine,
-  candyGuard: CandyGuard,
-  ownedTokens: DigitalAssetWithToken[],
-  mintAmount: number,
-  mintsCreated:
-    | {
-        mint: PublicKey;
-        offChainMetadata: JsonMetadata | undefined;
-      }[]
-    | undefined,
-  setMintsCreated: Dispatch<
-    SetStateAction<
-      | { mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[]
-      | undefined
-    >
-  >,
-  guardList: GuardReturn[],
-  setGuardList: Dispatch<SetStateAction<GuardReturn[]>>,
-  onOpen: () => void,
+  candyMachineId: string,
+  checkEligibility: boolean,
   setCheckEligibility: Dispatch<SetStateAction<boolean>>,
-  ownedCoreAssets: DasApiAssetAndAssetMintLimit[],
-  setIsMinting: Dispatch<SetStateAction<boolean>>
+  firstRun: boolean,
+  setfirstRun: Dispatch<SetStateAction<boolean>>
 ) => {
-  const guardToUse = chooseGuardToUse(guard, candyGuard);
-  if (!guardToUse.guards) {
-    console.error("no guard defined!");
-    return;
-  }
+  const [candyMachine, setCandyMachine] = useState<CandyMachine>();
+  const [candyGuard, setCandyGuard] = useState<CandyGuard>();
+  const [mintPrice, setMintPrice] = useState<number | null>(null);
+  const toast = useToast();
 
-  let buyBeer = true;
-  if (!process.env.NEXT_PUBLIC_BUYMARKBEER) {
-    buyBeer = false;
-    console.log("The Creator does not want to pay for MarkSackerbergs beer 😒");
-  }
-
-  try {
-    //find the guard by guardToUse.label and set minting to true
-    const guardIndex = guardList.findIndex((g) => g.label === guardToUse.label);
-    if (guardIndex === -1) {
-      console.error("guard not found");
-      return;
-    }
-    const newGuardList = [...guardList];
-    newGuardList[guardIndex].minting = true;
-    setGuardList(newGuardList);
-
-    let routeBuild = await routeBuilder(umi, guardToUse, candyMachine);
-    if (routeBuild) {
-      createStandaloneToast().toast({
-        title: "Allowlist detected. Please sign to be approved to mint.",
-        status: "info",
-        duration: 900,
-        isClosable: true,
-      });
-      const latestBlockhash = (await umi.rpc.getLatestBlockhash({commitment: "finalized"}));
-      routeBuild = routeBuild.setBlockhash(latestBlockhash)
-      await umi.rpc
-      .sendTransaction(routeBuild.build(umi), { skipPreflight:true, maxRetries: 1, preflightCommitment: "finalized", commitment: "finalized" })
-    }
-
-    // fetch LUT
-    let tables: AddressLookupTableInput[] = [];
-    const lut = process.env.NEXT_PUBLIC_LUT;
-    if (lut) {
-      const lutPubKey = publicKey(lut);
-      const fetchedLut = await fetchAddressLookupTable(umi, lutPubKey);
-      tables = [fetchedLut];
-    } else {
-      createStandaloneToast().toast({
-        title: "The developer should really set a lookup table!",
-        status: "warning",
-        duration: 900,
-        isClosable: true,
-      });
-    }
-
-    let nftsigners = [] as KeypairSigner[];
-
-    for (let i = 0; i < mintAmount; i++) {
-      const nftMint = generateSigner(umi);
-      nftsigners.push(nftMint);
-    }
-
-    const mintArgsArray = mintArgsBuilder(guardToUse, ownedTokens, ownedCoreAssets, mintAmount);
-    const latestBlockhash = (await umi.rpc.getLatestBlockhash({commitment: "finalized"}));
-
-    const mintTxs: { transaction: Transaction; signers: Signer[] }[] =
-      await buildTxs(
-        umi,
-        candyMachine,
-        candyGuard,
-        nftsigners,
-        guardToUse,
-        mintArgsArray,
-        tables,
-        latestBlockhash.blockhash,
-        buyBeer
-      );
-    if (!mintTxs.length) {
-      console.error("no mint tx built!");
-      return;
-    }
-
-    updateLoadingText(`Please sign`, guardList, guardToUse.label, setGuardList);
-    
-    const signedTransactions = await signAllTransactions(mintTxs);
-
-    let signatures: Uint8Array[] = [];
-    let amountSent = 0;
-    const sendPromises = signedTransactions.map((tx, index) => {
-      return umi.rpc
-        .sendTransaction(tx, { skipPreflight:true, maxRetries: 1, preflightCommitment: "finalized", commitment: "finalized" })
-        .then((signature) => {
-          console.log(
-            `Transaction ${index + 1} resolved with signature: ${
-              base58.deserialize(signature)[0]
-            }`
-          );
-          amountSent = amountSent + 1;
-          signatures.push(signature);
-          return { status: "fulfilled", value: signature };
-        })
-        .catch((error) => {
-          console.error(`Transaction ${index + 1} failed:`, error);
-          return { status: "rejected", reason: error };
-        });
-    });
-
-    await Promise.allSettled(sendPromises);
-
-    if (!(await sendPromises[0]).status === true) {
-      // throw error that no tx was created
-      throw new Error("no tx was created");
-    }
-    updateLoadingText(
-      `finalizing transaction(s)`,
-      guardList,
-      guardToUse.label,
-      setGuardList
-    );
-
-    createStandaloneToast().toast({
-      title: `${signedTransactions.length} Transaction(s) sent!`,
-      status: "success",
-      duration: 3000,
-    });
-    const successfulMints = await verifyTx(umi, signatures, nftsigners, latestBlockhash, "finalized");
-    updateLoadingText(
-      "Fetching your NFT",
-      guardList,
-      guardToUse.label,
-      setGuardList
-    );
-    // Filter out successful mints and map to fetch promises
-    const fetchNftPromises = successfulMints.map((mintResult) =>
-      fetchNft(umi, mintResult).then((nftData) => ({
-        mint: mintResult,
-        nftData,
-      }))
-    );
-
-    const fetchedNftsResults = await Promise.all(fetchNftPromises);
-    // Prepare data for setting mintsCreated
-    let newMintsCreated: { mint: PublicKey; offChainMetadata: JsonMetadata }[] =
-      [];
-    fetchedNftsResults.map((acc) => {
-      if (acc.nftData.digitalAsset && acc.nftData.jsonMetadata) {
-        newMintsCreated.push({
-          mint: acc.mint,
-          offChainMetadata: acc.nftData.jsonMetadata,
-        });
-      }
-      return acc;
-    }, []);
-
-    // Update mintsCreated only if there are new mints
-    if (newMintsCreated.length > 0) {
-      setMintsCreated(newMintsCreated);
-      onOpen();
-    }
-  } catch (e) {
-    console.error(`minting failed because of ${e}`);
-    createStandaloneToast().toast({
-      title: "Your mint failed!",
-      description: "Please try again.",
-      status: "error",
-      duration: 900,
-      isClosable: true,
-    });
-  } finally {
-    //find the guard by guardToUse.label and set minting to true
-    const guardIndex = guardList.findIndex((g) => g.label === guardToUse.label);
-    if (guardIndex === -1) {
-      console.error("guard not found");
-      return;
-    }
-    const newGuardList = [...guardList];
-    newGuardList[guardIndex].minting = false;
-    setGuardList(newGuardList);
-    setCheckEligibility(true);
-    updateLoadingText(undefined, guardList, guardToUse.label, setGuardList);
-    setIsMinting(false);
-  }
-};
-// new component called timer that calculates the remaining Time based on the bigint solana time and the bigint toTime difference.
-const Timer = ({
-  solanaTime,
-  toTime,
-  setCheckEligibility,
-}: {
-  solanaTime: bigint;
-  toTime: bigint;
-  setCheckEligibility: Dispatch<SetStateAction<boolean>>;
-}) => {
-  const [remainingTime, setRemainingTime] = useState<bigint>(
-    toTime - solanaTime
-  );
   useEffect(() => {
-    const interval = setInterval(() => {
-      setRemainingTime((prev) => {
-        return prev - BigInt(1);
-      });
-    }, 1000);
-    return () => clearInterval(interval);
+    (async () => {
+      if (checkEligibility) {
+        if (!candyMachineId) {
+          console.error("No candy machine in .env!");
+          if (!toast.isActive("no-cm")) {
+            toast({
+              id: "no-cm",
+              title: "No candy machine in .env!",
+              description: "Add your candy machine address to the .env file!",
+              status: "error",
+              duration: 999999,
+              isClosable: true,
+            });
+          }
+          return;
+        }
+
+        let candyMachine;
+        try {
+          candyMachine = await fetchCandyMachine(umi, publicKey(candyMachineId));
+        } catch (e) {
+          console.error(e);
+          toast({
+            id: "no-cm-found",
+            title: "The CM from .env is invalid",
+            description: "Are you using the correct environment?",
+            status: "error",
+            duration: 999999,
+            isClosable: true,
+          });
+        }
+        setCandyMachine(candyMachine);
+        if (!candyMachine) {
+          return;
+        }
+        let candyGuard;
+        try {
+          candyGuard = await safeFetchCandyGuard(umi, candyMachine.mintAuthority);
+        } catch (e) {
+          console.error(e);
+          toast({
+            id: "no-guard-found",
+            title: "No Candy Guard found!",
+            description: "Do you have one assigned?",
+            status: "error",
+            duration: 999999,
+            isClosable: true,
+          });
+        }
+        if (!candyGuard) {
+          return;
+        }
+        setCandyGuard(candyGuard);
+
+        if (candyMachine && candyGuard) {
+          // Fetch mint price from candy machine or guard
+          const solPayment = candyGuard.guards.solPayment;
+          const price = solPayment && 'lamports' in solPayment
+            ? Number(solPayment.lamports) / 1e9
+            : 0;
+          setMintPrice(price);
+        }
+
+        if (firstRun){
+          setfirstRun(false)
+        }
+      }
+    })();
+  }, [umi, checkEligibility, candyMachineId, firstRun, setfirstRun, toast]);
+
+  return { candyMachine, setCandyMachine, candyGuard, mintPrice };
+};
+
+export default function Home() {
+  const umi = useUmi();
+  const solanaTime = useSolanaTime(); 
+  const toast = useToast();
+  const { isOpen: isShowNftOpen, onOpen: onShowNftOpen, onClose: onShowNftClose } = useDisclosure();
+  const { isOpen: isInitializerOpen, onOpen: onInitializerOpen, onClose: onInitializerClose } = useDisclosure();
+  const [mintsCreated, setMintsCreated] = useState<{ mint: PublicKey, offChainMetadata: JsonMetadata | undefined }[] | undefined>();
+  const [isAllowed, setIsAllowed] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
+  const [ownedTokens, setOwnedTokens] = useState<DigitalAssetWithToken[]>();
+  const [ownedCoreAssets, setOwnedCoreAssets] = useState<DasApiAssetAndAssetMintLimit[]>();
+
+  const [guards, setGuards] = useState<GuardReturn[]>([
+    { label: "startDefault", allowed: false, maxAmount: 0 },
+  ]);
+  const [firstRun, setFirstRun] = useState(true);
+  const [checkEligibility, setCheckEligibility] = useState<boolean>(true);
+  const [isMinting, setIsMinting] = useState(false);
+  const router = useRouter();
+  const wallet = useWallet();
+  const umiWithWallet = useMemo(() => wallet.connected ? umi.use(walletAdapterIdentity(wallet)) : umi, [umi, wallet]) as Umi;
+  const walletBalance = useWalletBalance(umiWithWallet);
+
+  const candyMachineId: PublicKey = useMemo(() => {
+    console.log('NEXT_PUBLIC_CANDY_MACHINE_ID:', process.env.NEXT_PUBLIC_CANDY_MACHINE_ID); // Add this line
+    if (process.env.NEXT_PUBLIC_CANDY_MACHINE_ID) {
+      return publicKey(process.env.NEXT_PUBLIC_CANDY_MACHINE_ID);
+    } else {
+      console.error(`NO CANDY MACHINE IN .env FILE DEFINED!`);
+      toast({
+        id: 'no-cm',
+        title: 'No candy machine in .env!',
+        description: "Add your candy machine address to the .env file!",
+        status: 'error',
+        duration: 999999,
+        isClosable: true,
+      })
+      return publicKey("11111111111111111111111111111111");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  //convert the remaining time in seconds to the amount of days, hours, minutes and seconds left
-  const days = remainingTime / BigInt(86400);
-  const hours = (remainingTime % BigInt(86400)) / BigInt(3600);
-  const minutes = (remainingTime % BigInt(3600)) / BigInt(60);
-  const seconds = remainingTime % BigInt(60);
-  if (days > BigInt(0)) {
-    return (
-      <Text fontSize="sm" fontWeight="bold">
-        {days.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        d{" "}
-        {hours.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        h{" "}
-        {minutes.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        m{" "}
-        {seconds.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        s
-      </Text>
-    );
+  if (!process.env.NEXT_PUBLIC_CANDY_MACHINE_ID) {
+    console.error("No candy machine in .env!")
+    if (!toast.isActive('no-cm')) {
+      toast({
+        id: 'no-cm',
+        title: 'No candy machine in .env!',
+        description: "Add your candy machine address to the .env file!",
+        status: 'error',
+        duration: 999999,
+        isClosable: true,
+      })
+    }
   }
-  if (hours > BigInt(0)) {
-    return (
-      <Text fontSize="sm" fontWeight="bold">
-        {hours.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        h{" "}
-        {minutes.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        m{" "}
-        {seconds.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        s
-      </Text>
-    );
-  }
-  if (minutes > BigInt(0) || seconds > BigInt(0)) {
-    return (
-      <Text fontSize="sm" fontWeight="bold">
-        {minutes.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        m{" "}
-        {seconds.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        s
-      </Text>
-    );
-  }
-  if (remainingTime === BigInt(0)) {
-    setCheckEligibility(true);
-  }
-  return <Text></Text>;
-};
+  const { candyMachine, setCandyMachine, candyGuard, mintPrice } = useCandyMachine(umi, candyMachineId, checkEligibility, setCheckEligibility, firstRun, setFirstRun);
 
-interface Props {
-  guardList: GuardReturn[];
-  candyMachine: CandyMachine | undefined;
-  candyGuard: CandyGuard<DefaultGuardSet> | undefined;
-  umi: Umi;
-  ownedTokens: DigitalAssetWithToken[] | undefined;
-  setGuardList: Dispatch<SetStateAction<GuardReturn[]>>;
-  mintsCreated: { mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[] | undefined;
-  setMintsCreated: Dispatch<SetStateAction<{ mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[] | undefined>>;
-  onOpen: () => void;
-  setCheckEligibility: Dispatch<SetStateAction<boolean>>;
-  ownedCoreAssets: DasApiAssetAndAssetMintLimit[] | undefined;
-  setIsMinting: Dispatch<SetStateAction<boolean>>;
-  mintButtonColor: string;
-}
-
-export function ButtonList({
-  umi,
-  guardList,
-  candyMachine,
-  candyGuard,
-  ownedTokens = [], // provide default empty array
-  setGuardList,
-  mintsCreated,
-  setMintsCreated,
-  onOpen,
-  setCheckEligibility,
-  ownedCoreAssets = [],
-  setIsMinting,
-  mintButtonColor,
-}: Props): JSX.Element {
-  const solanaTime = useSolanaTime();
-
-  if (!candyMachine || !candyGuard) {
-    return <></>;
-  }
-
-  // remove duplicates from guardList 
-  //fucked up bugfix
-  let filteredGuardlist = guardList.filter(
-    (elem, index, self) =>
-      index === self.findIndex((t) => t.label === elem.label)
-  );
-  if (filteredGuardlist.length === 0) {
-    return <></>;
-  }
-  // Guard "default" can only be used to mint in case no other guard exists
-  if (filteredGuardlist.length > 1) {
-    filteredGuardlist = guardList.filter((elem) => elem.label != "default");
-  }
-  let buttonGuardList = [];
-  for (const guard of filteredGuardlist) {
-    const text = mintText.find((elem) => elem.label === guard.label);
-    // find guard by label in candyGuard
-    const group = candyGuard.groups.find((elem) => elem.label === guard.label);
-    let startTime = createBigInt(0);
-    let endTime = createBigInt(0);
-    if (group) {
-      if (group.guards.startDate.__option === "Some") {
-        startTime = group.guards.startDate.value.date;
+  useEffect(() => {
+    const checkEligibilityFunc = async () => {
+      if (!candyMachine || !candyGuard || !checkEligibility || isShowNftOpen) {
+        return;
       }
-      if (group.guards.endDate.__option === "Some") {
-        endTime = group.guards.endDate.value.date;
+      setFirstRun(false);
+      
+      const { guardReturn, ownedTokens, ownedNfts } = await guardChecker(
+        umi, candyGuard, candyMachine, solanaTime
+      );
+
+      setOwnedTokens(ownedTokens || ownedNfts);
+      setGuards(guardReturn);
+      setOwnedCoreAssets(ownedCoreAssets || []); // Handle the case where ownedCoreAssets might not exist
+      setIsAllowed(false);
+
+      let allowed = false;
+      for (const guard of guardReturn) {
+        if (guard.allowed) {
+          allowed = true;                   
+          break;
+        }
+      }
+
+      setIsAllowed(allowed);
+      setLoading(false);
+    };
+
+    checkEligibilityFunc();
+    // On purpose: not check for candyMachine, candyGuard, solanaTime
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [umi, checkEligibility, firstRun]);
+
+  const refreshCounters = useCallback(async () => {
+    if (candyMachine) {
+      try {
+        const updatedCandyMachine = await fetchCandyMachine(umi, candyMachine.publicKey);
+        setCandyMachine(updatedCandyMachine);
+      } catch (error) {
+        console.error("Error fetching updated candy machine:", error);
+        // Optionally, show an error toast here
       }
     }
+    setCheckEligibility(true);
+  }, [umi, candyMachine, setCandyMachine, setCheckEligibility]);
 
-    let buttonElement: GuardButtonList = {
-      label: guard ? guard.label : "default",
-      allowed: guard.allowed,
-      header: text ? text.header : "header missing in settings.tsx",
-      mintText: text ? text.mintText : "mintText missing in settings.tsx",
-      buttonLabel: text
-        ? text.buttonLabel
-        : "buttonLabel missing in settings.tsx",
-      startTime,
-      endTime,
-      tooltip: guard.reason,
-      maxAmount: guard.maxAmount,
-    };
-    buttonGuardList.push(buttonElement);
-  }
+  const handleShowNftClose = useCallback(() => {
+    onShowNftClose();
+    refreshCounters();
+  }, [onShowNftClose, refreshCounters]);
 
-  const listItems = buttonGuardList.map((buttonGuard, index) => {
-    const isSoldOut = buttonGuard.maxAmount === 0;
+  const PageContent = ({ currentImage }: { currentImage: string }) => {
+    const availableNFTs = candyMachine ? Number(candyMachine.data.itemsAvailable) - Number(candyMachine.itemsRedeemed) : 0;
+    const totalNFTs = candyMachine ? Number(candyMachine.data.itemsAvailable) : 0;
+    const progress = totalNFTs > 0 ? ((totalNFTs - availableNFTs) / totalNFTs) * 100 : 0;
+    const progressColor = availableNFTs === 0 ? "red" : "green"; // Set color based on available NFTs
+    const counterBgColor = availableNFTs === 0 ? "red.500" : "green.500"; // Set counter background color based on available NFTs
+    const mintButtonColor = availableNFTs === 0 ? "red" : "green"; // Set mint button color based on available NFTs
+
+    useEffect(() => {
+      console.log('Wallet connected:', wallet.connected);
+      console.log('Wallet balance in PageContent:', walletBalance);
+    }, []); // Removed unnecessary dependencies
+
     return (
-      <Box key={index} marginTop={"20px"}>
-        <Flex direction="column" alignItems="center">
-          <Text pt="2" fontSize="sm" textAlign="center" mb={4}>
-            {buttonGuard.mintText}
-          </Text>
-          <Tooltip label={buttonGuard.tooltip} aria-label="Mint button">
-            <Button
-              onClick={() => {
-                if (!isSoldOut) {
-                  setIsMinting(true);
-                  mintClick(
-                    umi,
-                    buttonGuard,
-                    candyMachine,
-                    candyGuard,
-                    ownedTokens,
-                    1,
-                    mintsCreated,
-                    setMintsCreated,
-                    guardList,
-                    setGuardList,
-                    onOpen,
-                    setCheckEligibility,
-                    ownedCoreAssets,
-                    setIsMinting
-                  );
-                }
-              }}
-              key={buttonGuard.label}
-              size="lg"
-              backgroundColor={isSoldOut ? "red.500" : mintButtonColor}
-              color="white"
-              _hover={{ backgroundColor: isSoldOut ? "red.600" : "green.600" }}
-              isDisabled={isSoldOut || !buttonGuard.allowed}
-              isLoading={
-                guardList.find((elem) => elem.label === buttonGuard.label)
-                  ?.minting
-              }
-              loadingText={
-                guardList.find((elem) => elem.label === buttonGuard.label)
-                  ?.loadingText
-              }
-              borderRadius="full"
-            >
-              {isSoldOut ? "Sold Out" : "Mint for 0.2 SOL"}
-            </Button>
-          </Tooltip>
+      <>
+        <style jsx global>{`
+          body, html {
+            background: #2d3748;
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+          }
+          #__next {
+            height: 100%;
+          }
+        `}</style>
+        <Flex 
+          direction="column"
+          minHeight="100vh" 
+          width="160%" // Increased width
+          alignItems="center"
+          justifyContent="flex-start"
+          paddingTop="5vh"
+        >
+          <Box 
+            width="100%" 
+            maxWidth="1000px"
+            mx="auto" 
+            px={4}
+            position="relative"
+            transform="translateX(-19%)" // Move the card slightly to the left
+            borderRadius="20px" // Add this line to round the edges
+            overflow="hidden" // Add this to ensure content doesn't overflow rounded corners
+          >
+            <Box
+              position="absolute"
+              top="0"
+              left="0"
+              right="0"
+              bottom="0"
+              bg="black"
+              opacity="0.3"
+              borderRadius="20px" // Match the outer Box's borderRadius
+            />
+            <Card width="100%" bg="transparent" boxShadow="none">     
+              <CardHeader>
+                <Flex minWidth='max-content' alignItems='center' gap='4' direction="column">
+                  <Heading size='lg'>{headerText}</Heading>
+                  {loading ? (<></>) : (
+                    <>
+                      <Box background={counterBgColor} borderRadius={"5px"} p={2} mt={2}>
+                        <VStack>
+                          <Text fontSize={"sm"}>Available NFTs: </Text>
+                          <Text fontWeight={"semibold"}>{availableNFTs}/{totalNFTs}</Text>
+                        </VStack>
+                      </Box>
+                      <Progress 
+                        value={progress} 
+                        size="lg" // Increased size
+                        colorScheme={progressColor} // Use the conditional color
+                        width="100%" 
+                        mt={2} 
+                        height="20px" // Increased height
+                        borderRadius="10px" // More rounded
+                      />
+                    </>
+                  )}
+                </Flex>
+              </CardHeader>
+                  
+              <CardBody>
+                <Center my={4}>
+                  <Box
+                    rounded={'lg'}
+                    pos={'relative'}
+                    overflow="hidden"
+                    maxWidth="150%"
+                    height="auto"
+                  >
+                    <Image
+                      rounded={'lg'}
+                      width="100%"
+                      height="auto"
+                      objectFit={'cover'}
+                      alt={"project Image"}
+                      src={currentImage}
+                      key={currentImage}
+                    />
+                  </Box>
+                </Center>
+                {wallet.connected && (
+                  <Text mt={4} textAlign="center" fontWeight="bold">
+                    Wallet Balance: {typeof walletBalance === 'number' && !isNaN(walletBalance) 
+                      ? walletBalance.toFixed(2) 
+                      : `Loading... (${typeof walletBalance})`} SOL
+                  </Text>
+                )}
+                <Stack divider={<StackDivider />} spacing='4'>
+                  {loading ? (
+                    <VStack spacing={4}>
+                      <Skeleton height="30px" width="100%" />
+                      <Skeleton height="30px" width="100%" />
+                      <Skeleton height="30px" width="100%" />
+                    </VStack>
+                  ) : (
+                    <ButtonList
+                      guardList={guards}
+                      candyMachine={candyMachine}
+                      candyGuard={candyGuard}
+                      umi={umi}
+                      ownedTokens={ownedTokens}
+                      setGuardList={setGuards}
+                      mintsCreated={mintsCreated}
+                      setMintsCreated={setMintsCreated}
+                      onOpen={onShowNftOpen}
+                      setCheckEligibility={setCheckEligibility}
+                      ownedCoreAssets={ownedCoreAssets}
+                      setIsMinting={setIsMinting}
+                      mintButtonColor={mintButtonColor} // Pass the mint button color
+                    />
+                  )}
+                </Stack>
+              </CardBody>
+            </Card>
+          </Box>
         </Flex>
-      </Box>
+        {wallet.connected && candyMachine && umiWithWallet.identity.publicKey && umiWithWallet.identity.publicKey.toString() === candyMachine.authority.toString() && (
+          <>
+            <Center>
+              <Button backgroundColor={"red.200"} marginTop={"10"} onClick={onInitializerOpen}>Admin Menu</Button>
+            </Center>
+            <Modal isOpen={isInitializerOpen} onClose={onInitializerClose}>
+              <ModalOverlay />
+              <ModalContent maxW="600px"> 
+                <ModalHeader>Initializer</ModalHeader>
+                <ModalCloseButton />
+                <ModalBody>
+                  < InitializeModal umi={umiWithWallet} candyMachine={candyMachine} candyGuard={candyGuard} />
+                </ModalBody>
+              </ModalContent>
+            </Modal>
+          
+          </>)
+        }
+
+        <Modal isOpen={isShowNftOpen} onClose={handleShowNftClose}>
+          <ModalOverlay />
+          <ModalContent bg="green.500" opacity="1"> {/* Set background to black with reduced opacity */}
+            <ModalHeader color="white">Your minted NFT</ModalHeader> {/* Set text color to white for better contrast */}
+            <ModalCloseButton color="white" /> {/* Set close button color to white for better contrast */}
+            <ModalBody> 
+              <ShowNft nfts={mintsCreated} />
+            </ModalBody>
+          </ModalContent>
+        </Modal>
+      </>
     );
-  });
+  };
 
   return (
-    <>
-      {listItems}
-    </>
+    <main style={{ 
+      height: '100vh', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      justifyContent: 'flex-start', 
+      paddingTop: '20px' // Adjust this value as needed
+    }}>
+      <Flex justify="center" align="center" marginBottom="20px"> {/* Adjust this value as needed */}
+        <div className={`${styles.wallet} wallet-button`} style={{ whiteSpace: 'nowrap' }}>
+          <WalletMultiButtonDynamic />
+        </div>
+      </Flex>
+
+      <div className={styles.center}>
+        <PageContent 
+          key="content" 
+          currentImage={isMinting ? workimage : image}
+        />
+      </div>
+    </main>
   );
 }
