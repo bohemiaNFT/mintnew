@@ -230,7 +230,6 @@ export default function Home() {
     const progress = totalNFTs > 0 ? ((totalNFTs - availableNFTs) / totalNFTs) * 100 : 0;
     const progressColor = availableNFTs === 0 ? "red" : "green"; // Set color based on available NFTs
     const counterBgColor = availableNFTs === 0 ? "red.500" : "green.500"; // Set counter background color based on available NFTs
-    const mintButtonColor = availableNFTs === 0 ? "red" : "green"; // Set mint button color based on available NFTs
 
     useEffect(() => {
       console.log('Wallet connected:', wallet.connected);
@@ -352,9 +351,6 @@ export default function Home() {
                       onOpen={onShowNftOpen}
                       setCheckEligibility={setCheckEligibility}
                       ownedCoreAssets={ownedCoreAssets}
-                      mintButtonColor={mintButtonColor} // Pass the mint button color
-                      availableNFTs={availableNFTs} // Pass availableNFTs
-                      totalNFTs={totalNFTs} // Pass totalNFTs
                     />
                   )}
                 </Stack>
