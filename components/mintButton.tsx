@@ -487,9 +487,9 @@ export function ButtonList({
 
   const listItems = buttonGuardList.map((buttonGuard, index) => {
     const isSoldOut = candyMachine && 
-      candyMachine.itemsLoaded.toNumber() <= candyMachine.itemsMinted.toNumber();
+      candyMachine.itemsLoaded <= candyMachine.itemsMinted;
     const remainingItems = candyMachine 
-      ? candyMachine.itemsLoaded.toNumber() - candyMachine.itemsMinted.toNumber()
+      ? candyMachine.itemsLoaded - candyMachine.itemsMinted
       : 0;
 
     return (
