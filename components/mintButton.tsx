@@ -1,4 +1,4 @@
-import { CandyGuard, CandyMachine } from "@metaplex-foundation/mpl-core-candy-machine";
+import { CandyGuard, CandyMachine, DefaultGuardSet } from "@metaplex-foundation/mpl-core-candy-machine";
 import { DasApiAssetAndAssetMintLimit, GuardReturn } from "../utils/checkerHelper";
 import {
   AddressLookupTableInput,
@@ -10,7 +10,7 @@ import {
   createBigInt,
   generateSigner,
   none,
-  publicKey,
+  publicKey,  
   signAllTransactions,
   sol,
   some,
@@ -57,6 +57,12 @@ import { useSolanaTime } from "@/utils/SolanaTimeContext";
 import { verifyTx } from "@/utils/verifyTx";
 import { base58 } from "@metaplex-foundation/umi/serializers";
 import { AssetV1, fetchAssetV1 } from "@metaplex-foundation/mpl-core";
+
+// Update the formatSolAmount function to handle bigint
+function formatSolAmount(lamports: number | bigint): string {
+  const solAmount = typeof lamports === 'bigint' ? Number(lamports) / 1e9 : lamports / 1e9; // Convert lamports to SOL
+  return solAmount.toFixed(2); // Format to 2 decimal places
+}
 
 const updateLoadingText = (
   loadingText: string | undefined,
@@ -117,7 +123,8 @@ const mintClick = async (
   setGuardList: Dispatch<SetStateAction<GuardReturn[]>>,
   onOpen: () => void,
   setCheckEligibility: Dispatch<SetStateAction<boolean>>,
-  ownedCoreAssets: DasApiAssetAndAssetMintLimit[]
+  ownedCoreAssets: DasApiAssetAndAssetMintLimit[],
+  setIsMinting: Dispatch<SetStateAction<boolean>>
 ) => {
   const guardToUse = chooseGuardToUse(guard, candyGuard);
   if (!guardToUse.guards) {
@@ -297,6 +304,7 @@ const mintClick = async (
     setGuardList(newGuardList);
     setCheckEligibility(true);
     updateLoadingText(undefined, guardList, guardToUse.label, setGuardList);
+    setIsMinting(false);
   }
 };
 // new component called timer that calculates the remaining Time based on the bigint solana time and the bigint toTime difference.
@@ -395,29 +403,21 @@ const Timer = ({
   return <Text></Text>;
 };
 
-type Props = {
-  umi: Umi;
+interface Props {
   guardList: GuardReturn[];
   candyMachine: CandyMachine | undefined;
-  candyGuard: CandyGuard | undefined;
+  candyGuard: CandyGuard<DefaultGuardSet> | undefined;
+  umi: Umi;
   ownedTokens: DigitalAssetWithToken[] | undefined;
   setGuardList: Dispatch<SetStateAction<GuardReturn[]>>;
-  mintsCreated:
-    | {
-        mint: PublicKey;
-        offChainMetadata: JsonMetadata | undefined;
-      }[]
-    | undefined;
-  setMintsCreated: Dispatch<
-    SetStateAction<
-      | { mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[]
-      | undefined
-    >
-  >;
+  mintsCreated: { mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[] | undefined;
+  setMintsCreated: Dispatch<SetStateAction<{ mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[] | undefined>>;
   onOpen: () => void;
   setCheckEligibility: Dispatch<SetStateAction<boolean>>;
   ownedCoreAssets: DasApiAssetAndAssetMintLimit[] | undefined;
-};
+  setIsMinting: Dispatch<SetStateAction<boolean>>;
+  mintButtonColor: string;
+}
 
 export function ButtonList({
   umi,
@@ -430,21 +430,17 @@ export function ButtonList({
   setMintsCreated,
   onOpen,
   setCheckEligibility,
-  ownedCoreAssets = []
+  ownedCoreAssets = [],
+  setIsMinting,
+  mintButtonColor,
 }: Props): JSX.Element {
   const solanaTime = useSolanaTime();
-  const [numberInputValues, setNumberInputValues] = useState<{
-    [label: string]: number;
-  }>({});
+
   if (!candyMachine || !candyGuard) {
     return <></>;
   }
 
-  const handleNumberInputChange = (label: string, value: number) => {
-    setNumberInputValues((prev) => ({ ...prev, [label]: value }));
-  };
-
-  // remove duplicates from guardList
+  // remove duplicates from guardList 
   //fucked up bugfix
   let filteredGuardlist = guardList.filter(
     (elem, index, self) =>
@@ -489,93 +485,43 @@ export function ButtonList({
     buttonGuardList.push(buttonElement);
   }
 
-  const listItems = buttonGuardList.map((buttonGuard, index) => (
-    <Box key={index} marginTop={"20px"}>
-      <Divider my="10px" />
-      <HStack>
-        <Heading size="xs" textTransform="uppercase">
-          {buttonGuard.header}
-        </Heading>
-        <Flex justifyContent="flex-end" marginLeft="auto">
-          {buttonGuard.endTime > createBigInt(0) &&
-            buttonGuard.endTime - solanaTime > createBigInt(0) &&
-            (!buttonGuard.startTime ||
-              buttonGuard.startTime - solanaTime <= createBigInt(0)) && (
-              <>
-                <Text fontSize="sm" marginRight={"2"}>
-                  Ending in:{" "}
-                </Text>
-                <Timer
-                  toTime={buttonGuard.endTime}
-                  solanaTime={solanaTime}
-                  setCheckEligibility={setCheckEligibility}
-                />
-              </>
-            )}
-          {buttonGuard.startTime > createBigInt(0) &&
-            buttonGuard.startTime - solanaTime > createBigInt(0) &&
-            (!buttonGuard.endTime ||
-              solanaTime - buttonGuard.endTime <= createBigInt(0)) && (
-              <>
-                <Text fontSize="sm" marginRight={"2"}>
-                  Starting in:{" "}
-                </Text>
-                <Timer
-                  toTime={buttonGuard.startTime}
-                  solanaTime={solanaTime}
-                  setCheckEligibility={setCheckEligibility}
-                />
-              </>
-            )}
-        </Flex>
-      </HStack>
-      <SimpleGrid columns={2} spacing={5}>
-        <Text pt="2" fontSize="sm">
-          {buttonGuard.mintText}
-        </Text>
-        <VStack>
-          {process.env.NEXT_PUBLIC_MULTIMINT && buttonGuard.allowed ? (
-            <NumberInput
-              value={numberInputValues[buttonGuard.label] || 1}
-              min={1}
-              max={buttonGuard.maxAmount < 1 ? 1 : buttonGuard.maxAmount}
-              size="sm"
-              isDisabled={!buttonGuard.allowed}
-              onChange={(valueAsString, valueAsNumber) =>
-                handleNumberInputChange(buttonGuard.label, valueAsNumber)
-              }
-            >
-              <NumberInputField />
-              <NumberInputStepper>
-                <NumberIncrementStepper />
-                <NumberDecrementStepper />
-              </NumberInputStepper>
-            </NumberInput>
-          ) : null}
-
+  const listItems = buttonGuardList.map((buttonGuard, index) => {
+    const isSoldOut = buttonGuard.maxAmount === 0;
+    return (
+      <Box key={index} marginTop={"20px"}>
+        <Flex direction="column" alignItems="center">
+          <Text pt="2" fontSize="sm" textAlign="center" mb={4}>
+            {buttonGuard.mintText}
+          </Text>
           <Tooltip label={buttonGuard.tooltip} aria-label="Mint button">
             <Button
-              onClick={() =>
-                mintClick(
-                  umi,
-                  buttonGuard,
-                  candyMachine,
-                  candyGuard,
-                  ownedTokens,
-                  numberInputValues[buttonGuard.label] || 1,
-                  mintsCreated,
-                  setMintsCreated,
-                  guardList,
-                  setGuardList,
-                  onOpen,
-                  setCheckEligibility,
-                  ownedCoreAssets
-                )
-              }
+              onClick={() => {
+                if (!isSoldOut) {
+                  setIsMinting(true);
+                  mintClick(
+                    umi,
+                    buttonGuard,
+                    candyMachine,
+                    candyGuard,
+                    ownedTokens,
+                    1,
+                    mintsCreated,
+                    setMintsCreated,
+                    guardList,
+                    setGuardList,
+                    onOpen,
+                    setCheckEligibility,
+                    ownedCoreAssets,
+                    setIsMinting
+                  );
+                }
+              }}
               key={buttonGuard.label}
-              size="sm"
-              backgroundColor="teal.100"
-              isDisabled={!buttonGuard.allowed}
+              size="lg"
+              backgroundColor={isSoldOut ? "red.500" : mintButtonColor}
+              color="white"
+              _hover={{ backgroundColor: isSoldOut ? "red.600" : "green.600" }}
+              isDisabled={isSoldOut || !buttonGuard.allowed}
               isLoading={
                 guardList.find((elem) => elem.label === buttonGuard.label)
                   ?.minting
@@ -584,14 +530,19 @@ export function ButtonList({
                 guardList.find((elem) => elem.label === buttonGuard.label)
                   ?.loadingText
               }
+              borderRadius="full"
             >
-              {buttonGuard.buttonLabel}
+              {isSoldOut ? "Sold Out" : "Mint for 0.2 SOL"}
             </Button>
           </Tooltip>
-        </VStack>
-      </SimpleGrid>
-    </Box>
-  ));
+        </Flex>
+      </Box>
+    );
+  });
 
-  return <>{listItems}</>;
+  return (
+    <>
+      {listItems}
+    </>
+  );
 }
