@@ -307,101 +307,6 @@ const mintClick = async (
     setIsMinting(false);
   }
 };
-// new component called timer that calculates the remaining Time based on the bigint solana time and the bigint toTime difference.
-const Timer = ({
-  solanaTime,
-  toTime,
-  setCheckEligibility,
-}: {
-  solanaTime: bigint;
-  toTime: bigint;
-  setCheckEligibility: Dispatch<SetStateAction<boolean>>;
-}) => {
-  const [remainingTime, setRemainingTime] = useState<bigint>(
-    toTime - solanaTime
-  );
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRemainingTime((prev) => {
-        return prev - BigInt(1);
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  //convert the remaining time in seconds to the amount of days, hours, minutes and seconds left
-  const days = remainingTime / BigInt(86400);
-  const hours = (remainingTime % BigInt(86400)) / BigInt(3600);
-  const minutes = (remainingTime % BigInt(3600)) / BigInt(60);
-  const seconds = remainingTime % BigInt(60);
-  if (days > BigInt(0)) {
-    return (
-      <Text fontSize="sm" fontWeight="bold">
-        {days.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        d{" "}
-        {hours.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        h{" "}
-        {minutes.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        m{" "}
-        {seconds.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        s
-      </Text>
-    );
-  }
-  if (hours > BigInt(0)) {
-    return (
-      <Text fontSize="sm" fontWeight="bold">
-        {hours.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        h{" "}
-        {minutes.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        m{" "}
-        {seconds.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        s
-      </Text>
-    );
-  }
-  if (minutes > BigInt(0) || seconds > BigInt(0)) {
-    return (
-      <Text fontSize="sm" fontWeight="bold">
-        {minutes.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        m{" "}
-        {seconds.toLocaleString("en-US", {
-          minimumIntegerDigits: 2,
-          useGrouping: false,
-        })}
-        s
-      </Text>
-    );
-  }
-  if (remainingTime === BigInt(0)) {
-    setCheckEligibility(true);
-  }
-  return <Text></Text>;
-};
 
 interface Props {
   guardList: GuardReturn[];
@@ -417,6 +322,8 @@ interface Props {
   ownedCoreAssets: DasApiAssetAndAssetMintLimit[] | undefined;
   setIsMinting: Dispatch<SetStateAction<boolean>>;
   mintButtonColor: string;
+  availableNFTs: number; // Add availableNFTs prop
+  totalNFTs: number; // Add totalNFTs prop
 }
 
 export function ButtonList({
@@ -433,6 +340,8 @@ export function ButtonList({
   ownedCoreAssets = [],
   setIsMinting,
   mintButtonColor,
+  availableNFTs, // Use availableNFTs prop
+  totalNFTs, // Use totalNFTs prop
 }: Props): JSX.Element {
   const solanaTime = useSolanaTime();
 
@@ -486,11 +395,8 @@ export function ButtonList({
   }
 
   const listItems = buttonGuardList.map((buttonGuard, index) => {
-    const isSoldOut = candyMachine && 
-      candyMachine.itemsAvailable <= candyMachine.itemsRemaining;
-    const remainingItems = candyMachine 
-      ? candyMachine.itemsAvailable - candyMachine.itemsRemaining
-      : 0;
+    const isSoldOut = availableNFTs <= 0;
+    const remainingItems = availableNFTs;
 
     return (
       <Box key={index} marginTop={"20px"}>

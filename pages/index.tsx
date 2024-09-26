@@ -354,6 +354,8 @@ export default function Home() {
                       ownedCoreAssets={ownedCoreAssets}
                       setIsMinting={setIsMinting}
                       mintButtonColor={mintButtonColor} // Pass the mint button color
+                      availableNFTs={availableNFTs} // Pass availableNFTs
+                      totalNFTs={totalNFTs} // Pass totalNFTs
                     />
                   )}
                 </Stack>
