@@ -398,7 +398,7 @@ const Timer = ({
 interface Props {
   guardList: GuardReturn[];
   candyMachine: CandyMachine | undefined;
-  candyGuard: CandyGuard | undefined;
+  candyGuard: CandyGuard<DefaultGuardSet> | undefined;
   umi: Umi;
   ownedTokens: DigitalAssetWithToken[] | undefined;
   setGuardList: Dispatch<SetStateAction<GuardReturn[]>>;
@@ -424,7 +424,11 @@ export function ButtonList({
   setMintsCreated,
   onOpen,
   setCheckEligibility,
-  ownedCoreAssets = []
+  ownedCoreAssets = [],
+  setIsMinting,
+  mintButtonColor,
+  availableNFTs,
+  totalNFTs,
 }: Props): JSX.Element {
   const solanaTime = useSolanaTime();
   const [numberInputValues, setNumberInputValues] = useState<{
@@ -569,7 +573,7 @@ export function ButtonList({
               key={buttonGuard.label}
               size="sm"
               backgroundColor="teal.100"
-              isDisabled={!buttonGuard.allowed}
+              isDisabled={!buttonGuard.allowed || availableNFTs <= 0}
               isLoading={
                 guardList.find((elem) => elem.label === buttonGuard.label)
                   ?.minting
