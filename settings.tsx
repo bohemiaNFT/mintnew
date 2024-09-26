@@ -8,8 +8,7 @@ export const mintText = [
 ];
 
 //header image in the ui. replace with your own
-export const image = "./preview.gif";
-export const workimage = "./working.gif";
+export const image = "https://avatars.githubusercontent.com/u/93528482?v=4";
 
 //website title
-export const headerText = "Euphoria Collection by Bohemia Art Fair"; 
+export const headerText = "MarkSackerberg's mint UI";

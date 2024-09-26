@@ -1,6 +1,6 @@
 import { JsonMetadata } from "@metaplex-foundation/mpl-token-metadata";
 import { PublicKey } from "@metaplex-foundation/umi";
-import { Box, Text, Divider, SimpleGrid, VStack, Button } from "@chakra-ui/react";
+import { Box, Text, Divider, SimpleGrid, VStack } from "@chakra-ui/react";
 import React from "react";
 import {
   Accordion,
@@ -21,16 +21,14 @@ interface TraitsProps {
 const Trait = ({ heading, description }: TraitProps) => {
   return (
     <Box
-      backgroundColor={"#333333"}
+      backgroundColor={"#ebebeb"}
       borderRadius={"5px"}
       width={"120px"}
       minHeight={"50px"}
     >
       <VStack>
-        <Text fontSize={"sm"} fontWeight={"semibold"}>
-          {heading}
-        </Text>
-        <Text fontSize={"sm"} marginTop={"-2"}>
+        <Text fontSize={"sm"}>{heading}</Text>
+        <Text fontSize={"sm"} marginTop={"-2"} fontWeight={"semibold"}>
           {description}
         </Text>
       </VStack>
@@ -65,16 +63,7 @@ const Traits = ({ metadata }: TraitsProps) => {
   );
 };
 
-const shareOnTwitter = (metadata: JsonMetadata) => {
-  const text = `Check out this NFT I just minted! Great piece of art from @BohemiaArtFair, come and get one too :-) 
-  ${metadata.name}`;
-  const imageUrl = metadata.animation_url ?? metadata.image ?? '';
-  const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(imageUrl)}`;
-
-  window.open(tweetUrl, '_blank');
-};
-
-export default function Card({        
+export default function Card({
   metadata,
 }: {
   metadata: JsonMetadata | undefined;
@@ -90,7 +79,7 @@ export default function Card({
         key={image}
         height={"sm"}
         position="relative"
-        backgroundPosition="center"   
+        backgroundPosition="center"
         backgroundRepeat="no-repeat"
         backgroundSize="cover"
         backgroundImage={`url(${image})`}
@@ -99,13 +88,6 @@ export default function Card({
         {metadata.name}
       </Text>
       <Text>{metadata.description}</Text>
-      <Button
-        colorScheme="twitter"
-        onClick={() => shareOnTwitter(metadata)}
-        marginTop={"10px"}
-      >
-        Share on Twitter
-      </Button>
       <Traits metadata={metadata} />
     </Box>
   );
