@@ -352,7 +352,6 @@ export default function Home() {
                       onOpen={onShowNftOpen}
                       setCheckEligibility={setCheckEligibility}
                       ownedCoreAssets={ownedCoreAssets}
-                      setIsMinting={setIsMinting}
                       mintButtonColor={mintButtonColor} // Pass the mint button color
                       availableNFTs={availableNFTs} // Pass availableNFTs
                       totalNFTs={totalNFTs} // Pass totalNFTs
