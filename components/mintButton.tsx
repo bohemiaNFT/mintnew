@@ -424,7 +424,7 @@ export function ButtonList({
   guardList,
   candyMachine,
   candyGuard,
-  ownedTokens = [], // provide default empty array
+  ownedTokens = [],
   setGuardList,
   mintsCreated,
   setMintsCreated,
@@ -486,7 +486,11 @@ export function ButtonList({
   }
 
   const listItems = buttonGuardList.map((buttonGuard, index) => {
-    const isSoldOut = buttonGuard.maxAmount !== undefined && buttonGuard.maxAmount <= 0;
+    const isSoldOut = candyMachine && candyMachine.itemsAvailable <= candyMachine.itemsRedeemed;
+    const remainingItems = candyMachine 
+      ? Number(candyMachine.itemsAvailable) - Number(candyMachine.itemsRedeemed) 
+      : 0;
+
     return (
       <Box key={index} marginTop={"20px"}>
         <Flex direction="column" alignItems="center">
@@ -532,7 +536,7 @@ export function ButtonList({
               }
               borderRadius="full"
             >
-              {isSoldOut ? "Sold Out" : "Mint for 0.2 SOL"}
+              {isSoldOut ? "Sold Out" : `Mint for 0.2 SOL (${remainingItems} left)`}
             </Button>
           </Tooltip>
         </Flex>
