@@ -486,7 +486,7 @@ export function ButtonList({
   }
 
   const listItems = buttonGuardList.map((buttonGuard, index) => {
-    const isSoldOut = buttonGuard.maxAmount === 0;
+    const isSoldOut = buttonGuard.maxAmount !== undefined && buttonGuard.maxAmount <= 0;
     return (
       <Box key={index} marginTop={"20px"}>
         <Flex direction="column" alignItems="center">
