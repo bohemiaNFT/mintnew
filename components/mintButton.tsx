@@ -417,9 +417,10 @@ type Props = {
   onOpen: () => void;
   setCheckEligibility: Dispatch<SetStateAction<boolean>>;
   ownedCoreAssets: DasApiAssetAndAssetMintLimit[] | undefined;
+  availableNFTs: number;
 };
 
-export function ButtonList({
+export const ButtonList: React.FC<Props> = ({
   umi,
   guardList,
   candyMachine,
@@ -430,8 +431,9 @@ export function ButtonList({
   setMintsCreated,
   onOpen,
   setCheckEligibility,
-  ownedCoreAssets = []
-}: Props): JSX.Element {
+  ownedCoreAssets = [],
+  availableNFTs,
+}) => {
   const solanaTime = useSolanaTime();
   const [numberInputValues, setNumberInputValues] = useState<{
     [label: string]: number;
@@ -575,7 +577,7 @@ export function ButtonList({
               key={buttonGuard.label}
               size="sm"
               backgroundColor="teal.100"
-              isDisabled={!buttonGuard.allowed}
+              isDisabled={!buttonGuard.allowed || availableNFTs <= 0}
               isLoading={
                 guardList.find((elem) => elem.label === buttonGuard.label)
                   ?.minting
@@ -584,6 +586,7 @@ export function ButtonList({
                 guardList.find((elem) => elem.label === buttonGuard.label)
                   ?.loadingText
               }
+              style={{ backgroundColor: availableNFTs > 0 ? 'green' : 'gray' }}
             >
               {buttonGuard.buttonLabel}
             </Button>
@@ -594,4 +597,4 @@ export function ButtonList({
   ));
 
   return <>{listItems}</>;
-}
+};
