@@ -4,6 +4,7 @@ import { createContext, useContext } from "react";
 type UmiContext = {
   umi: Umi | null;
 };
+
 const DEFAULT_CONTEXT: UmiContext = {
   umi: null,
 };
@@ -20,4 +21,3 @@ export function useUmi(): Umi {
   }
   return umi;
 }
-
