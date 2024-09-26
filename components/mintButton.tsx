@@ -395,23 +395,29 @@ const Timer = ({
   return <Text></Text>;
 };
 
-interface Props {
+type Props = {
+  umi: Umi;
   guardList: GuardReturn[];
   candyMachine: CandyMachine | undefined;
-  candyGuard: CandyGuard<DefaultGuardSet> | undefined;
-  umi: Umi;
+  candyGuard: CandyGuard | undefined;
   ownedTokens: DigitalAssetWithToken[] | undefined;
   setGuardList: Dispatch<SetStateAction<GuardReturn[]>>;
-  mintsCreated: { mint: PublicKey, offChainMetadata: JsonMetadata | undefined }[] | undefined;
-  setMintsCreated: Dispatch<SetStateAction<{ mint: PublicKey, offChainMetadata: JsonMetadata | undefined }[] | undefined>>;
+  mintsCreated:
+    | {
+        mint: PublicKey;
+        offChainMetadata: JsonMetadata | undefined;
+      }[]
+    | undefined;
+  setMintsCreated: Dispatch<
+    SetStateAction<
+      | { mint: PublicKey; offChainMetadata: JsonMetadata | undefined }[]
+      | undefined
+    >
+  >;
   onOpen: () => void;
   setCheckEligibility: Dispatch<SetStateAction<boolean>>;
   ownedCoreAssets: DasApiAssetAndAssetMintLimit[] | undefined;
-  setIsMinting: Dispatch<SetStateAction<boolean>>; // Add this line
-  mintButtonColor: string; // Add this line
-  availableNFTs: number; // Add this line
-  totalNFTs: number; // Add this line
-}
+};
 
 export function ButtonList({
   umi,
@@ -424,11 +430,7 @@ export function ButtonList({
   setMintsCreated,
   onOpen,
   setCheckEligibility,
-  ownedCoreAssets = [],
-  setIsMinting,
-  mintButtonColor,
-  availableNFTs,
-  totalNFTs,
+  ownedCoreAssets = []
 }: Props): JSX.Element {
   const solanaTime = useSolanaTime();
   const [numberInputValues, setNumberInputValues] = useState<{
@@ -573,7 +575,7 @@ export function ButtonList({
               key={buttonGuard.label}
               size="sm"
               backgroundColor="teal.100"
-              isDisabled={!buttonGuard.allowed || availableNFTs <= 0}
+              isDisabled={!buttonGuard.allowed}
               isLoading={
                 guardList.find((elem) => elem.label === buttonGuard.label)
                   ?.minting
