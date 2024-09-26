@@ -243,7 +243,6 @@ const mintClick = async (
       guardToUse.label,
       setGuardList
     );
-
     createStandaloneToast().toast({
       title: `${signedTransactions.length} Transaction(s) sent!`,
       status: "success",
@@ -396,7 +395,6 @@ export function ButtonList({
 
   const listItems = buttonGuardList.map((buttonGuard, index) => {
     const isSoldOut = availableNFTs <= 0;
-    const remainingItems = availableNFTs;
 
     return (
       <Box key={index} marginTop={"20px"}>
@@ -443,7 +441,7 @@ export function ButtonList({
               }
               borderRadius="full"
             >
-              {isSoldOut ? "Sold Out" : `Mint for 0.2 SOL (${remainingItems} left)`}
+              {isSoldOut ? "Sold Out" : `Mint for 0.2 SOL`}
             </Button>
           </Tooltip>
         </Flex>
